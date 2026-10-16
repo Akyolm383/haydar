@@ -84,6 +84,12 @@ GEMINI_TRIGGERS = [
     "cemini",
     "ceminay",
     "geminay",
+    "cimini",
+    "gimini",
+    "cimine",
+    "cebini",
+    "cemil",
+    "yapay zeka",
 ]
 
 
@@ -93,9 +99,10 @@ def extract_gemini_query(text: str) -> Tuple[bool, str]:
     Returns (is_gemini_detected, query_text).
     Examples:
       "gemini saat kaç" -> (True, "saat kaç")
-      "cemini gökyüzü neden mavi" -> (True, "gökyüzü neden mavi")
+      "gemini dinle" -> (True, "")  # Waiting mode
       "gemini" -> (True, "")  # Waiting mode
-      "geminiye sor hava nasıl" -> (True, "hava nasıl")
+      "cemil dinle" -> (True, "")  # Turkish STT phonetic match
+      "hey gemini hava nasıl" -> (True, "hava nasıl")
       "haydar 15 saniye ileri sar" -> (False, "")
     """
     normalized = normalize_turkish(text)
@@ -103,35 +110,43 @@ def extract_gemini_query(text: str) -> Tuple[bool, str]:
     if not words:
         return False, ""
 
-    # Optional greeting prefix like 'hey gemini' or 'ey gemini'
-    if words[0] in ("hey", "ey", "alo") and len(words) > 1:
+    # Optional greeting prefixes like 'hey', 'ey', 'alo', 'merhaba', 'selam', 'ya'
+    if words[0] in ("hey", "ey", "alo", "merhaba", "selam", "ya") and len(words) > 1:
         words = words[1:]
 
-    # Check if first word is 'gemini' or close variant
-    first_word = words[0]
-    matched_gemini = False
-    for trigger in GEMINI_TRIGGERS:
-        if fuzz.ratio(first_word, trigger) >= 78:
-            matched_gemini = True
+    # Check if any of the first 2 words matches a gemini trigger
+    gemini_idx = -1
+    for i in range(min(2, len(words))):
+        w = words[i]
+        for trig in GEMINI_TRIGGERS:
+            if fuzz.ratio(w, trig) >= 74:
+                gemini_idx = i
+                break
+        if gemini_idx != -1:
             break
 
-    # Also support 'yapay zeka ...'
-    if not matched_gemini and len(words) >= 2:
+    # Also support 'yapay zeka' (2 words)
+    if gemini_idx == -1 and len(words) >= 2:
         if words[0] == "yapay" and words[1] == "zeka":
-            remaining = " ".join(words[2:]).strip()
-            if remaining.startswith("sor "):
-                remaining = remaining[4:].strip()
-            return True, remaining
+            gemini_idx = 1
 
-    if matched_gemini:
-        remaining = " ".join(words[1:]).strip()
-        if remaining.startswith("sor "):
-            remaining = remaining[4:].strip()
-        elif remaining == "sor":
+    if gemini_idx == -1:
+        return False, ""
+
+    # The query is everything after the gemini trigger word
+    remaining_words = words[gemini_idx + 1 :]
+    remaining = " ".join(remaining_words).strip()
+
+    # Strip conversational wake greetings like 'dinle', 'dinliyor musun', 'bakar mısın', 'sor', 'soru'
+    filler_words = ("sor", "dinle", "dinliyor musun", "bakar mısın", "burada mısın", "efendim", "alo", "baksana")
+    for filler in filler_words:
+        if remaining == filler:
             remaining = ""
-        return True, remaining
+            break
+        elif remaining.startswith(filler + " "):
+            remaining = remaining[len(filler) :].strip()
 
-    return False, ""
+    return True, remaining
 
 
 class CommandMatcher:

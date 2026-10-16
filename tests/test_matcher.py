@@ -111,6 +111,23 @@ def test_gemini_query_extraction(actual_config):
     assert is_gem3 is True
     assert q3 == ""
 
+    # Conversational wake greeting phrases: 'gemini dinle', 'cemil dinle', 'hey gemini'
+    is_gem_dinle, q_dinle = extract_gemini_query("gemini dinle")
+    assert is_gem_dinle is True
+    assert q_dinle == ""
+
+    is_gem_cemil, q_cemil = extract_gemini_query("cemil dinle")
+    assert is_gem_cemil is True
+    assert q_cemil == ""
+
+    is_gem_hey, q_hey = extract_gemini_query("hey gemini")
+    assert is_gem_hey is True
+    assert q_hey == ""
+
+    is_gem_merhaba, q_merhaba = extract_gemini_query("merhaba gemini")
+    assert is_gem_merhaba is True
+    assert q_merhaba == ""
+
     # 'geminiye sor ...'
     is_gem4, q4 = extract_gemini_query("geminiye sor yarın hava nasıl")
     assert is_gem4 is True
@@ -136,10 +153,40 @@ def test_spotify_commands(actual_config):
     assert res_play.matched is True
     assert res_play.command["id"] == "spotify_play_pause"
 
+    res_spot_pause = matcher.find_match("haydar spotify durdur")
+    assert res_spot_pause.matched is True
+    assert res_spot_pause.command["id"] == "spotify_play_pause"
+
+    res_spot_play = matcher.find_match("haydar spotify çal")
+    assert res_spot_play.matched is True
+    assert res_spot_play.command["id"] == "spotify_play_pause"
+
+    # 'müziği kapat' must trigger spotify_play_pause, NEVER exit_haydar!
+    res_music_kapat = matcher.find_match("haydar müziği kapat")
+    assert res_music_kapat.matched is True
+    assert res_music_kapat.command["id"] == "spotify_play_pause"
+
+    res_sarki_kapat = matcher.find_match("haydar şarkıyı kapat")
+    assert res_sarki_kapat.matched is True
+    assert res_sarki_kapat.command["id"] == "spotify_play_pause"
+
     # Next / Prev track
     res_next = matcher.find_match("haydar sonraki şarkı")
     assert res_next.matched is True
     assert res_next.command["id"] == "spotify_next_track"
+
+    # 'şarkı değiştir' must trigger spotify_next_track, NEVER switch_window!
+    res_change1 = matcher.find_match("haydar şarkı değiştir")
+    assert res_change1.matched is True
+    assert res_change1.command["id"] == "spotify_next_track"
+
+    res_change2 = matcher.find_match("haydar müzik değiştir")
+    assert res_change2.matched is True
+    assert res_change2.command["id"] == "spotify_next_track"
+
+    res_skip = matcher.find_match("haydar şarkıyı atla")
+    assert res_skip.matched is True
+    assert res_skip.command["id"] == "spotify_next_track"
 
     res_prev = matcher.find_match("haydar önceki şarkı")
     assert res_prev.matched is True
@@ -157,5 +204,14 @@ def test_spotify_commands(actual_config):
     res_open = matcher.find_match("haydar spotify aç")
     assert res_open.matched is True
     assert res_open.command["id"] == "spotify_open"
+
+    res_open_phonetic = matcher.find_match("haydar spotifayı aç")
+    assert res_open_phonetic.matched is True
+    assert res_open_phonetic.command["id"] == "spotify_open"
+
+    # Exit Haydar
+    res_exit = matcher.find_match("haydar asistanı kapat")
+    assert res_exit.matched is True
+    assert res_exit.command["id"] == "exit_haydar"
 
 

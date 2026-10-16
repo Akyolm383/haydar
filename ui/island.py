@@ -462,15 +462,15 @@ class DynamicIsland(QWidget):
         )
 
         self.icon_label.setText("✨")
-        self.text_label.setText("Gemini dinliyor... Sorunu sor kral.")
-        self.text_label.setStyleSheet("color: #F3F4F6; background: transparent;")
+        self.text_label.setText("Efendim? Dinliyorum...")
+        self.text_label.setStyleSheet("color: #FFFFFF; background: transparent;")
         self.badge_label.setText("Gemini AI")
         self.badge_label.setStyleSheet(
             "background: rgba(168, 85, 247, 0.22); color: #C084FC; font-weight: bold; border-radius: 6px; padding: 3px 8px; border: 1px solid rgba(168, 85, 247, 0.35);"
         )
         self.badge_label.show()
 
-        self.morph_width(360)
+        self.morph_width(320)
         if not self.is_visible_on_screen:
             self.slide_down()
         self.update()

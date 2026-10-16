@@ -86,8 +86,13 @@ class VoiceWorkerThread(QThread):
             if self.is_gemini_awake and (now - self.gemini_awake_timestamp) <= self.wake_window_seconds:
                 self.is_gemini_awake = False
                 self.signals.sig_transcribed.emit(raw_text)
-                answer = self.ai.answer(raw_text)
-                self.signals.sig_ai_answer.emit(raw_text, answer)
+
+                # If user repeated "Gemini ..." in their follow-up, clean it up
+                is_gem, clean_query = self.matcher.extract_gemini_query(raw_text)
+                query_to_send = clean_query if (is_gem and clean_query) else raw_text
+
+                answer = self.ai.answer(query_to_send)
+                self.signals.sig_ai_answer.emit(query_to_send, answer)
                 continue
 
             # --- CASE 2: Assistant is waiting for HAYDAR desktop command ---
