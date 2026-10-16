@@ -12,7 +12,27 @@ Haydar; mikrofonunuzdan gelen Türkçe konuşmaları **Google Speech API** ile m
   - *"Haydar video dursun"*
   - *"Haydar ses artsın"*
   - *"Haydar masaüstüne dön"*
-- **Sadece *"Haydar"*** derseniz ada tepeden inip **"👋 Efendim? Dinliyorum..."** der ve hazır bekler!
+- **Sadece *"Haydar"*** derseniz ada tepeden inip **"👋 Efendim? Dinliyorum..."** der ve **7 saniye boyunca uyanık kalarak** komut vermenizi bekler! Hemen kapanmaz, siz konuşunca komutunuzu yerine getirir.
+
+---
+
+## 🌊 Canlı Ses Dalgaları (Audio Waveform Visualizer)
+
+- Siz konuştukça ses seviyenizi anlık olarak analiz eden **4 barlık dinamik ve canlı yeşil ekolayzer** animasyonu çalışır.
+- Ses tonunuzun şiddetine göre barlar yükselip alçalır, konuşmadığınızda sakin bir nefes alma ritmine geçer.
+
+---
+
+## 🤖 Gemini AI / Akıllı Sohbet Entegrasyonu
+
+Haydar artık sadece klavye kısayollarını tetiklemekle kalmaz; tanımlı olmayan bir şey sorduğunuzda yapay zeka ile yanıtlar:
+- *"Haydar saat kaç?"* -> `14:35`
+- *"Haydar bugün günlerden ne?"* -> `Cuma, 16 Ekim 2026`
+- *"Haydar gökyüzü neden mavi?"* -> Gemini AI ile akıllı ve özlü Türkçe yanıt
+- Yanıtlar Dinamik Ada üzerinde şık bir mor/mavi AI rozetiyle gösterilir ve birkaç saniye sonra ada kapanır.
+
+> **Gemini API Anahtarı Nasıl Eklenir?**
+> `config/commands.json` dosyasını açıp `"gemini_api_key": "AIzaSy..."` alanına Google AI Studio anahtarınızı yazabilir veya ortam değişkeni olarak `GEMINI_API_KEY` tanımlayabilirsiniz. Anahtar olmasa dahi saat/tarih gibi temel komutlar yerel olarak anında çalışır.
 
 ---
 
@@ -64,6 +84,8 @@ Haydar'ı sonlandırmak için **3 pratik yöntem** mevcuttur:
 | **"yeni sekme"** | Tarayıcıda yeni sekme açar | `Ctrl + T` |
 | **"sekmeyi kapat"** | Tarayıcı sekmesini kapatır | `Ctrl + W` |
 | **"sayfayı yenile"** | Sayfayı yeniden yükler | `F5` |
+| **"saat kaç"**, **"tarih ne"** | Tarih ve saat bilgisi | `Dinamik Ada Yanıtı` |
+| **Genel sorular (Gemini AI)** | Yapay zeka ile yanıtlar | `Dinamik Ada AI Yanıtı` |
 | **"haydarı kapat"**, **"asistanı kapat"** | Haydar uygulamasından çıkar | `Çıkış` |
 
 ---

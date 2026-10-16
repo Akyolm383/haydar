@@ -33,25 +33,41 @@ def calculate_rms(data: bytes, sample_width: int) -> int:
 
 
 class StreamProxy:
-    def __init__(self, stream, sample_width: int, threshold: float, on_speech_start: Optional[Callable[[], None]]):
+    def __init__(
+        self,
+        stream,
+        sample_width: int,
+        threshold: float,
+        on_speech_start: Optional[Callable[[], None]],
+        on_audio_level: Optional[Callable[[float], None]] = None,
+    ):
         self._stream = stream
         self._sample_width = sample_width
         self._threshold = threshold
         self._on_speech_start = on_speech_start
+        self._on_audio_level = on_audio_level
         self._speech_triggered = False
 
     def read(self, size):
         data = self._stream.read(size)
-        if not self._speech_triggered and data:
+        if data:
             energy = calculate_rms(data, self._sample_width)
-            # When speech energy exceeds threshold by a margin
-            if energy > (self._threshold * 1.1):
-                self._speech_triggered = True
-                if self._on_speech_start:
-                    try:
-                        self._on_speech_start()
-                    except Exception:
-                        pass
+            if self._on_audio_level:
+                # Normalize amplitude between 0.0 and 1.0
+                norm_level = min(1.0, max(0.0, energy / max(100.0, self._threshold * 2.5)))
+                try:
+                    self._on_audio_level(norm_level)
+                except Exception:
+                    pass
+
+            if not self._speech_triggered:
+                if energy > (self._threshold * 1.1):
+                    self._speech_triggered = True
+                    if self._on_speech_start:
+                        try:
+                            self._on_speech_start()
+                        except Exception:
+                            pass
         return data
 
     def __getattr__(self, name):
@@ -66,12 +82,14 @@ class VoiceListener:
         on_listening_start: Optional[Callable[[], None]] = None,
         on_speech_start: Optional[Callable[[], None]] = None,
         on_speech_detected: Optional[Callable[[], None]] = None,
+        on_audio_level: Optional[Callable[[float], None]] = None,
     ):
         self.language = language
         self.energy_threshold_adjustment = energy_threshold_adjustment
         self.on_listening_start = on_listening_start
         self.on_speech_start = on_speech_start
         self.on_speech_detected = on_speech_detected
+        self.on_audio_level = on_audio_level
 
         self.recognizer = sr.Recognizer()
         self.recognizer.pause_threshold = 0.8
@@ -101,6 +119,7 @@ class VoiceListener:
                     sample_width=source.SAMPLE_WIDTH,
                     threshold=self.recognizer.energy_threshold,
                     on_speech_start=self.on_speech_start,
+                    on_audio_level=self.on_audio_level,
                 )
 
                 try:
