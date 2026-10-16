@@ -123,3 +123,39 @@ def test_gemini_query_extraction(actual_config):
     is_gem6, _ = extract_gemini_query("haydar saat kaç")
     assert is_gem6 is False
 
+
+def test_spotify_commands(actual_config):
+    matcher = CommandMatcher(actual_config)
+
+    # Spotify play/pause
+    res_pause = matcher.find_match("haydar şarkıyı durdur")
+    assert res_pause.matched is True
+    assert res_pause.command["id"] == "spotify_play_pause"
+
+    res_play = matcher.find_match("haydar müzik çal")
+    assert res_play.matched is True
+    assert res_play.command["id"] == "spotify_play_pause"
+
+    # Next / Prev track
+    res_next = matcher.find_match("haydar sonraki şarkı")
+    assert res_next.matched is True
+    assert res_next.command["id"] == "spotify_next_track"
+
+    res_prev = matcher.find_match("haydar önceki şarkı")
+    assert res_prev.matched is True
+    assert res_prev.command["id"] == "spotify_prev_track"
+
+    # Shuffle / Repeat / Like / Open
+    res_shuffle = matcher.find_match("haydar karışık çal")
+    assert res_shuffle.matched is True
+    assert res_shuffle.command["id"] == "spotify_shuffle"
+
+    res_like = matcher.find_match("haydar şarkıyı beğen")
+    assert res_like.matched is True
+    assert res_like.command["id"] == "spotify_like"
+
+    res_open = matcher.find_match("haydar spotify aç")
+    assert res_open.matched is True
+    assert res_open.command["id"] == "spotify_open"
+
+

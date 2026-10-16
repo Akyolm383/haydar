@@ -305,6 +305,128 @@
       "threshold": 70
     },
     {
+      "id": "spotify_open",
+      "description": "Spotify uygulamasını aç",
+      "triggers": [
+        "spotify aç",
+        "spotifyı aç",
+        "spotify başlat",
+        "müzik uygulamasını aç",
+        "spotifyı başlat"
+      ],
+      "action_type": "open",
+      "target": "spotify:",
+      "threshold": 75
+    },
+    {
+      "id": "spotify_play_pause",
+      "description": "Müziği oynat veya duraklat",
+      "triggers": [
+        "şarkıyı durdur",
+        "şarkıyı duraklat",
+        "şarkıyı başlat",
+        "şarkıyı oynat",
+        "şarkıyı devam ettir",
+        "müziği durdur",
+        "müziği duraklat",
+        "müziği başlat",
+        "müziği oynat",
+        "müziği devam ettir",
+        "müzik dursun",
+        "şarkı dursun",
+        "müzik çal",
+        "şarkı çal",
+        "müziği çal"
+      ],
+      "action_type": "press",
+      "keys": ["playpause"],
+      "threshold": 70
+    },
+    {
+      "id": "spotify_next_track",
+      "description": "Sonraki şarkıya geç",
+      "triggers": [
+        "sonraki şarkı",
+        "diğer şarkı",
+        "şarkıyı geç",
+        "müziği geç",
+        "sıradaki şarkı",
+        "şarkıyı atla",
+        "sonraki parça",
+        "müzik geç",
+        "şarkı geç",
+        "şarkı atla",
+        "diğer parça"
+      ],
+      "action_type": "press",
+      "keys": ["nexttrack"],
+      "threshold": 70
+    },
+    {
+      "id": "spotify_prev_track",
+      "description": "Önceki şarkıya dön",
+      "triggers": [
+        "önceki şarkı",
+        "önceki parça",
+        "baştan çal",
+        "önceki müzik",
+        "gerideki şarkı",
+        "bir önceki şarkı",
+        "şarkıyı başa sar",
+        "şarkıyı baştan çal"
+      ],
+      "action_type": "press",
+      "keys": ["prevtrack"],
+      "threshold": 70
+    },
+    {
+      "id": "spotify_shuffle",
+      "description": "Spotify karışık çalmayı (Shuffle) aç veya kapat",
+      "triggers": [
+        "şarkıları karıştır",
+        "karışık çal",
+        "karışık çalmayı aç",
+        "karışık çalmayı kapat",
+        "rastgele çal",
+        "şarkıları rastgele çal",
+        "karışık oynat"
+      ],
+      "action_type": "hotkey",
+      "keys": ["ctrl", "s"],
+      "threshold": 70
+    },
+    {
+      "id": "spotify_repeat",
+      "description": "Spotify tekrar çalmayı (Repeat) aç veya kapat",
+      "triggers": [
+        "şarkıyı tekrarla",
+        "tekrar çal",
+        "tekrar çalmayı aç",
+        "tekrar çalmayı kapat",
+        "döngüye al",
+        "tekrar oynat"
+      ],
+      "action_type": "hotkey",
+      "keys": ["ctrl", "r"],
+      "threshold": 70
+    },
+    {
+      "id": "spotify_like",
+      "description": "Çalan şarkıyı beğenilenlere ekle",
+      "triggers": [
+        "şarkıyı beğen",
+        "parçayı beğen",
+        "beğenilenlere ekle",
+        "favorilere ekle",
+        "şarkıyı kaydet",
+        "bu şarkıyı beğen",
+        "şarkıyı favoriye ekle"
+      ],
+      "action_type": "hotkey",
+      "keys": ["alt", "shift", "b"],
+      "threshold": 70
+    },
+    {
       "id": "exit_haydar",
       "description": "Haydar uygulamasını kapatır",
       "triggers": [

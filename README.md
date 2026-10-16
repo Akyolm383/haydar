@@ -95,6 +95,13 @@ Haydar'ı sonlandırmak için **3 pratik yöntem** mevcuttur:
 | **"yeni sekme"** | Tarayıcıda yeni sekme açar | `Ctrl + T` |
 | **"sekmeyi kapat"** | Tarayıcı sekmesini kapatır | `Ctrl + W` |
 | **"sayfayı yenile"** | Sayfayı yeniden yükler | `F5` |
+| **"spotify aç"**, **"spotifyı aç"** | Spotify uygulamasını başlatır | `spotify:` |
+| **"şarkıyı durdur"**, **"müzik dursun"**, **"müzik çal"** | Müziği oynatır / duraklatır (Arka planda da çalışır) | `⏯️ Play/Pause` |
+| **"sonraki şarkı"**, **"şarkıyı geç"**, **"sıradaki şarkı"** | Sonraki şarkıya geçer | `⏭️ Next Track` |
+| **"önceki şarkı"**, **"baştan çal"** | Önceki şarkıya döner | `⏮️ Prev Track` |
+| **"karışık çal"**, **"şarkıları karıştır"** | Karışık çalmayı açar / kapatır | `Ctrl + S` |
+| **"şarkıyı tekrarla"**, **"tekrar çal"** | Tekrar çalmayı açar / kapatır | `Ctrl + R` |
+| **"şarkıyı beğen"**, **"beğenilenlere ekle"** | Çalan şarkıyı beğenilenlere ekler | `Alt + Shift + B` |
 | **"saat kaç"**, **"tarih ne"** | Tarih ve saat bilgisi | `Dinamik Ada Yanıtı` |
 | **Genel sorular (Gemini AI)** | Yapay zeka ile yanıtlar | `Dinamik Ada AI Yanıtı` |
 | **"haydarı kapat"**, **"asistanı kapat"** | Haydar uygulamasından çıkar | `Çıkış` |

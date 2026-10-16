@@ -239,15 +239,21 @@ class CommandMatcher:
                 # penalize generic trigger so specific numbered trigger wins
                 penalty = 35.0 if (in_nums and not tr_nums) else 0.0
 
-                # Proportional penalty when trigger has extra words that input omitted
-                len_diff = max(0, len(norm_trigger.split()) - len(processed_text.split()))
-                word_penalty = len_diff * 8.0
+                # Proportional penalty when word count differs
+                len_diff = abs(len(norm_trigger.split()) - len(processed_text.split()))
+                word_penalty = len_diff * 6.0
 
                 token_set_score = fuzz.token_set_ratio(processed_text, norm_trigger)
                 full_ratio = fuzz.ratio(processed_text, norm_trigger)
 
-                raw_score = max(token_set_score, full_ratio)
-                score = max(0.0, raw_score - penalty - word_penalty)
+                # Prioritize exact or near-identical string matches
+                if processed_text == norm_trigger:
+                    score = 100.0
+                elif full_ratio >= 90:
+                    score = full_ratio
+                else:
+                    raw_score = max(token_set_score * 0.7 + full_ratio * 0.3, full_ratio)
+                    score = max(0.0, raw_score - penalty - word_penalty)
 
                 if score > best_score:
                     best_score = score

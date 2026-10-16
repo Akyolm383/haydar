@@ -386,9 +386,25 @@ class DynamicIsland(QWidget):
 
         self.icon_label.setText("✔")
         self.text_label.setText(desc)
-
         if keys:
-            keys_text = " + ".join(keys)
+            friendly_map = {
+                "playpause": "⏯️ Oynat/Durdur",
+                "nexttrack": "⏭️ Sonraki Şarkı",
+                "prevtrack": "⏮️ Önceki Şarkı",
+                "volumeup": "Ses +",
+                "volumedown": "Ses -",
+                "volumemute": "Sessiz",
+                "win": "Win",
+                "ctrl": "Ctrl",
+                "alt": "Alt",
+                "shift": "Shift",
+                "space": "Boşluk",
+                "right": "Sağ Ok",
+                "left": "Sol Ok",
+                "up": "Yukarı Ok",
+                "down": "Aşağı Ok",
+            }
+            keys_text = " + ".join(friendly_map.get(k.lower(), k.upper()) for k in keys)
             self.badge_label.setText(f"[ {keys_text} ]")
             self.badge_label.setStyleSheet(
                 "background: rgba(16, 185, 129, 0.2); color: #34D399; font-weight: bold; border-radius: 6px; padding: 3px 8px;"
