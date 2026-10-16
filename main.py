@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import sys
+import threading
 import time
 
 # Ensure UTF-8 output encoding on Windows consoles
@@ -97,8 +98,12 @@ class VoiceWorkerThread(QThread):
                 query_to_send = clean_query if (is_gem and clean_query) else raw_text
 
                 self.signals.sig_ai_thinking.emit(query_to_send)
-                answer = self.ai.answer(query_to_send)
-                self.signals.sig_ai_answer.emit(query_to_send, answer)
+
+                def _fetch_answer_case1(q=query_to_send):
+                    ans = self.ai.answer(q)
+                    self.signals.sig_ai_answer.emit(q, ans)
+
+                threading.Thread(target=_fetch_answer_case1, daemon=True).start()
                 continue
 
             # --- CASE 2: Assistant is waiting for HAYDAR desktop command ---
@@ -143,8 +148,12 @@ class VoiceWorkerThread(QThread):
                     # "Gemini [soru]" tek seferde söyledi
                     self.signals.sig_transcribed.emit(raw_text)
                     self.signals.sig_ai_thinking.emit(gemini_query)
-                    answer = self.ai.answer(gemini_query)
-                    self.signals.sig_ai_answer.emit(gemini_query, answer)
+
+                    def _fetch_answer_case3(q=gemini_query):
+                        ans = self.ai.answer(q)
+                        self.signals.sig_ai_answer.emit(q, ans)
+
+                    threading.Thread(target=_fetch_answer_case3, daemon=True).start()
                 continue
 
             # --- CASE 4: Standby HAYDAR Trigger ("Haydar ..." or "Haydar") ---

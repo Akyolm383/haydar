@@ -98,25 +98,23 @@ class GeminiAssistant:
             return "Rica ederim kral, her zaman buradayım!"
 
         # 2. Gemini AI Query
-        if not self.client:
+        if not self.api_key:
             return "Cevaplayabilmem için .env dosyasına GEMINI_API_KEY ekleyin."
 
-        try:
-            sys_instruction = (
-                "Sen 'Haydar' isimli Türkçe masaüstü sesli asistansın. "
-                "Cevabın kullanıcının ekranının üstündeki Dinamik Ada widget'ında gösterilecek. "
-                "Bu yüzden cevabın KESİNLİKLE ÇOK KISA, net, samimi ve maksimum 1-2 cümle (en fazla 25 kelime) olmalıdır. "
-                "Markdown başlıkları, uzun listeler kullanma."
-            )
+        sys_instruction = (
+            "Sen 'Haydar' isimli Türkçe masaüstü sesli asistansın. "
+            "Cevabın ekranın üstündeki Dinamik Ada widget'ında gösterilecek. "
+            "Bu yüzden cevabın KESİNLİKLE ÇOK KISA, net, samimi ve maksimum 1-2 cümle (en fazla 20 kelime) olmalıdır. "
+            "Markdown başlıkları, uzun listeler kullanma."
+        )
 
-            models_to_try = ["gemini-flash-latest", "gemini-3.8-flash", "gemini-pro-latest"]
-            response = None
-            last_err = None
-
-            for model_name in models_to_try:
-                for attempt in range(2):
+        # Method A: Try Google GenAI SDK with strict ThreadPoolExecutor timeout (6 seconds)
+        if self.client:
+            import concurrent.futures
+            def _call_genai():
+                for model_name in ["gemini-flash-latest", "gemini-3.8-flash", "gemini-pro-latest"]:
                     try:
-                        response = self.client.models.generate_content(
+                        resp = self.client.models.generate_content(
                             model=model_name,
                             contents=prompt,
                             config=types.GenerateContentConfig(
@@ -125,32 +123,67 @@ class GeminiAssistant:
                                 temperature=0.7,
                             ),
                         )
-                        if response and response.text:
-                            last_err = None
-                            break
-                    except Exception as ex:
-                        last_err = ex
-                        import time
-                        time.sleep(0.35)
-                if response and response.text:
-                    break
+                        if resp and resp.text:
+                            return resp.text
+                    except Exception:
+                        continue
+                return None
 
-            if response and response.text:
-                clean_text = response.text.replace("\n", " ").strip()
-                # Clean up any markdown asterisks, bold markers, backticks
-                clean_text = re.sub(r"[*_`#]", "", clean_text)
-                clean_text = re.sub(r"\s+", " ", clean_text).strip()
-                return clean_text
+            try:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(_call_genai)
+                    sdk_text = future.result(timeout=6.5)
+                    if sdk_text:
+                        clean_text = sdk_text.replace("\n", " ").strip()
+                        clean_text = re.sub(r"[*_`#]", "", clean_text)
+                        clean_text = re.sub(r"\s+", " ", clean_text).strip()
+                        return clean_text
+            except concurrent.futures.TimeoutError:
+                pass
+            except Exception:
+                pass
 
-            if last_err:
-                err_msg = str(last_err)
-                if "404" in err_msg:
-                    return "Model güncelleniyor, lütfen tekrar deneyin."
-                elif "503" in err_msg or "UNAVAILABLE" in err_msg:
-                    return "Sunucular anlık yoğun, lütfen tekrar deneyin."
-                return f"Yapay zeka yanıt veremedi: {err_msg[:45]}"
+        # Method B: Direct ultra-reliable REST fallback with urllib (timeout=6.0s)
+        try:
+            import json
+            import urllib.request
+            import urllib.error
 
-            return "Bunu tam anlayamadım, tekrar eder misiniz?"
+            for model in ["gemini-3.8-flash", "gemini-flash-latest"]:
+                try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+                    payload = {
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "systemInstruction": {
+                            "parts": [{"text": sys_instruction}]
+                        },
+                        "generationConfig": {
+                            "maxOutputTokens": 100,
+                            "temperature": 0.7
+                        }
+                    }
+                    data = json.dumps(payload).encode("utf-8")
+                    req = urllib.request.Request(
+                        url,
+                        data=data,
+                        headers={"Content-Type": "application/json"},
+                        method="POST"
+                    )
+                    with urllib.request.urlopen(req, timeout=6.0) as resp:
+                        body = json.loads(resp.read().decode("utf-8"))
+                        candidates = body.get("candidates", [])
+                        if candidates:
+                            parts = candidates[0].get("content", {}).get("parts", [])
+                            if parts and "text" in parts[0]:
+                                text = parts[0]["text"]
+                                clean_text = text.replace("\n", " ").strip()
+                                clean_text = re.sub(r"[*_`#]", "", clean_text)
+                                clean_text = re.sub(r"\s+", " ", clean_text).strip()
+                                return clean_text
+                except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+                    continue
 
         except Exception as e:
-            return f"Yapay zeka yanıt veremedi: {str(e)[:40]}"
+            return f"Yapay zeka yanıt veremedi ({str(e)[:30]})"
+
+        return "Gemini bağlantısı zaman aşımına uğradı, lütfen tekrar deneyin."
