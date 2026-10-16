@@ -108,82 +108,62 @@ class GeminiAssistant:
             "Markdown başlıkları, uzun listeler kullanma."
         )
 
-        # Method A: Try Google GenAI SDK with strict ThreadPoolExecutor timeout (6 seconds)
+        # Primary: Google GenAI Client with gemini-3.8-flash (10 second budget)
         if self.client:
-            import concurrent.futures
-            def _call_genai():
-                for model_name in ["gemini-flash-latest", "gemini-3.8-flash", "gemini-pro-latest"]:
-                    try:
-                        resp = self.client.models.generate_content(
-                            model=model_name,
-                            contents=prompt,
-                            config=types.GenerateContentConfig(
-                                system_instruction=sys_instruction,
-                                max_output_tokens=100,
-                                temperature=0.7,
-                            ),
-                        )
-                        if resp and resp.text:
-                            return resp.text
-                    except Exception:
-                        continue
-                return None
-
             try:
+                import concurrent.futures
+                def _do_generate():
+                    return self.client.models.generate_content(
+                        model="gemini-3.8-flash",
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=sys_instruction,
+                            max_output_tokens=100,
+                            temperature=0.7,
+                        ),
+                    )
+
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(_call_genai)
-                    sdk_text = future.result(timeout=6.5)
-                    if sdk_text:
-                        clean_text = sdk_text.replace("\n", " ").strip()
+                    fut = executor.submit(_do_generate)
+                    res = fut.result(timeout=10.0)
+                    if res and res.text:
+                        clean_text = res.text.replace("\n", " ").strip()
                         clean_text = re.sub(r"[*_`#]", "", clean_text)
                         clean_text = re.sub(r"\s+", " ", clean_text).strip()
                         return clean_text
             except concurrent.futures.TimeoutError:
                 pass
-            except Exception:
-                pass
+            except Exception as e:
+                err_str = str(e)
+                if "503" in err_str or "UNAVAILABLE" in err_str:
+                    return "Gemini sunucuları şu an yoğun, lütfen birazdan tekrar deneyin."
 
-        # Method B: Direct ultra-reliable REST fallback with urllib (timeout=6.0s)
+        # Fallback: Direct REST API with 10s socket timeout
         try:
             import json
             import urllib.request
             import urllib.error
 
-            for model in ["gemini-3.8-flash", "gemini-flash-latest"]:
-                try:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
-                    payload = {
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "systemInstruction": {
-                            "parts": [{"text": sys_instruction}]
-                        },
-                        "generationConfig": {
-                            "maxOutputTokens": 100,
-                            "temperature": 0.7
-                        }
-                    }
-                    data = json.dumps(payload).encode("utf-8")
-                    req = urllib.request.Request(
-                        url,
-                        data=data,
-                        headers={"Content-Type": "application/json"},
-                        method="POST"
-                    )
-                    with urllib.request.urlopen(req, timeout=6.0) as resp:
-                        body = json.loads(resp.read().decode("utf-8"))
-                        candidates = body.get("candidates", [])
-                        if candidates:
-                            parts = candidates[0].get("content", {}).get("parts", [])
-                            if parts and "text" in parts[0]:
-                                text = parts[0]["text"]
-                                clean_text = text.replace("\n", " ").strip()
-                                clean_text = re.sub(r"[*_`#]", "", clean_text)
-                                clean_text = re.sub(r"\s+", " ", clean_text).strip()
-                                return clean_text
-                except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
-                    continue
-
-        except Exception as e:
-            return f"Yapay zeka yanıt veremedi ({str(e)[:30]})"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={self.api_key}"
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "systemInstruction": {"parts": [{"text": sys_instruction}]},
+                "generationConfig": {"maxOutputTokens": 100, "temperature": 0.7}
+            }
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=10.0) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+                candidates = body.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts and "text" in parts[0]:
+                        text = parts[0]["text"]
+                        clean_text = text.replace("\n", " ").strip()
+                        clean_text = re.sub(r"[*_`#]", "", clean_text)
+                        clean_text = re.sub(r"\s+", " ", clean_text).strip()
+                        return clean_text
+        except Exception:
+            pass
 
         return "Gemini bağlantısı zaman aşımına uğradı, lütfen tekrar deneyin."

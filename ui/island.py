@@ -571,7 +571,7 @@ class DynamicIsland(QWidget):
         self.update()
 
         # Generous wait time while network call completes
-        self.hide_timer.start(8000)
+        self.hide_timer.start(12000)
 
     def show_ai_answer(self, prompt: str, answer: str):
         """Triggered when Gemini AI provides an answer."""
