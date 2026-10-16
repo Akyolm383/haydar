@@ -6,8 +6,7 @@
     "wake_word": "haydar",
     "language": "tr-TR",
     "feedback_sound": false,
-    "energy_threshold_adjustment": true,
-    "gemini_api_key": ""
+    "energy_threshold_adjustment": true
   },
   "commands": [
     {

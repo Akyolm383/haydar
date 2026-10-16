@@ -16,7 +16,6 @@ if sys.platform == "win32":
 from PyQt6.QtCore import QThread
 from PyQt6.QtWidgets import QApplication
 
-from core.ai import GeminiAssistant
 from core.executor import ActionExecutor
 from core.listener import VoiceListener
 from core.matcher import CommandMatcher
@@ -40,24 +39,18 @@ class VoiceWorkerThread(QThread):
         listener: VoiceListener,
         matcher: CommandMatcher,
         executor: ActionExecutor,
-        ai: GeminiAssistant,
         signals: IslandSignals,
     ):
         super().__init__()
         self.listener = listener
         self.matcher = matcher
         self.executor = executor
-        self.ai = ai
         self.signals = signals
         self.running = True
 
-        # Separate two-stage wake states for Haydar (desktop) and Gemini (AI)
+        # Two-stage wake state for Haydar ("Haydar" -> "Efendim? Dinliyorum...")
         self.is_haydar_awake = False
         self.haydar_awake_timestamp = 0.0
-
-        self.is_gemini_awake = False
-        self.gemini_awake_timestamp = 0.0
-
         self.wake_window_seconds = 7.0
 
     def run(self):
@@ -65,9 +58,6 @@ class VoiceWorkerThread(QThread):
             now = time.time()
             if self.is_haydar_awake and (now - self.haydar_awake_timestamp) > self.wake_window_seconds:
                 self.is_haydar_awake = False
-
-            if self.is_gemini_awake and (now - self.gemini_awake_timestamp) > self.wake_window_seconds:
-                self.is_gemini_awake = False
 
             try:
                 raw_text = self.listener.listen_once()
@@ -83,30 +73,7 @@ class VoiceWorkerThread(QThread):
 
             now = time.time()
 
-            # --- CASE 1: Assistant is waiting for GEMINI follow-up question ---
-            if self.is_gemini_awake and (now - self.gemini_awake_timestamp) <= self.wake_window_seconds:
-                # If user repeated "Gemini" / "gemi ne" without asking a question yet, keep waiting
-                is_gem, clean_query = self.matcher.extract_gemini_query(raw_text)
-                if is_gem and not clean_query:
-                    self.gemini_awake_timestamp = time.time()
-                    self.signals.sig_gemini_waiting.emit()
-                    continue
-
-                self.is_gemini_awake = False
-                self.signals.sig_transcribed.emit(raw_text)
-
-                query_to_send = clean_query if (is_gem and clean_query) else raw_text
-
-                self.signals.sig_ai_thinking.emit(query_to_send)
-
-                def _fetch_answer_case1(q=query_to_send):
-                    ans = self.ai.answer(q)
-                    self.signals.sig_ai_answer.emit(q, ans)
-
-                threading.Thread(target=_fetch_answer_case1, daemon=True).start()
-                continue
-
-            # --- CASE 2: Assistant is waiting for HAYDAR desktop command ---
+            # --- CASE 1: Assistant is waiting for command following "Haydar" ---
             if self.is_haydar_awake and (now - self.haydar_awake_timestamp) <= self.wake_window_seconds:
                 self.is_haydar_awake = False
                 self.signals.sig_transcribed.emit(raw_text)
@@ -131,46 +98,24 @@ class VoiceWorkerThread(QThread):
                             match_res.score,
                         )
                 else:
-                    # Tanımsız komut: Asla Gemini'ye sorma! Sadece anlaşılamadı göster.
                     self.signals.sig_unmatched.emit(raw_text, match_res.score)
                 continue
 
-            # --- CASE 3: Explicit GEMINI Trigger ("Gemini ..." or "Gemini") ---
-            is_gemini, gemini_query = self.matcher.extract_gemini_query(raw_text)
-            if is_gemini:
-                self.is_haydar_awake = False
-                if not gemini_query:
-                    # Sadece "Gemini" dedi -> Soru bekleme moduna geç
-                    self.is_gemini_awake = True
-                    self.gemini_awake_timestamp = time.time()
-                    self.signals.sig_gemini_waiting.emit()
-                else:
-                    # "Gemini [soru]" tek seferde söyledi
-                    self.signals.sig_transcribed.emit(raw_text)
-                    self.signals.sig_ai_thinking.emit(gemini_query)
-
-                    def _fetch_answer_case3(q=gemini_query):
-                        ans = self.ai.answer(q)
-                        self.signals.sig_ai_answer.emit(q, ans)
-
-                    threading.Thread(target=_fetch_answer_case3, daemon=True).start()
-                continue
-
-            # --- CASE 4: Standby HAYDAR Trigger ("Haydar ..." or "Haydar") ---
+            # --- CASE 2: Standby mode ("Haydar ..." or "Haydar") ---
             match_result = self.matcher.find_match(raw_text)
             processed_text, wake_detected = self.matcher.extract_command_text(raw_text)
 
             if match_result.matched and match_result.command:
                 cmd = match_result.command
 
-                # Sadece "Haydar" dedi -> Komut bekleme moduna geç
+                # User said just "Haydar" -> Enter command listening mode
                 if cmd.get("id") == "wake_greeting":
                     self.is_haydar_awake = True
                     self.haydar_awake_timestamp = time.time()
                     self.signals.sig_waiting_command.emit()
                     continue
 
-                # "Haydar [komut]" tek seferde söyledi
+                # User said "Haydar [komut]" in one breath
                 self.signals.sig_transcribed.emit(raw_text)
                 if cmd.get("action_type") == "exit":
                     self.signals.sig_exit.emit()
@@ -185,11 +130,9 @@ class VoiceWorkerThread(QThread):
                         match_result.score,
                     )
             elif wake_detected and processed_text:
-                # "Haydar [tanımsız bir komut]" dedi -> Asla Gemini'ye gönderme!
                 self.signals.sig_transcribed.emit(raw_text)
                 self.signals.sig_unmatched.emit(processed_text, match_result.score)
             elif not self.matcher.wake_word_enabled:
-                # Continuous mode fallback
                 self.signals.sig_transcribed.emit(raw_text)
                 self.signals.sig_unmatched.emit(raw_text, match_result.score)
 
@@ -251,7 +194,6 @@ def main():
     sound = SoundFeedback(enabled=False)
     matcher = CommandMatcher(config)
     executor = ActionExecutor(cooldown_seconds=float(settings.get("cooldown_seconds", 0.8)))
-    ai = GeminiAssistant(api_key=settings.get("gemini_api_key"))
     ui = HaydarUI(settings=settings, commands=commands)
 
     # CLI simulation mode
@@ -296,10 +238,7 @@ def main():
     island_signals.sig_audio_level.connect(island.handle_audio_level)
     island_signals.sig_transcribed.connect(island.show_transcribing)
     island_signals.sig_waiting_command.connect(island.show_waiting_for_command)
-    island_signals.sig_gemini_waiting.connect(island.show_gemini_waiting)
     island_signals.sig_executed.connect(island.show_executed)
-    island_signals.sig_ai_thinking.connect(island.show_ai_thinking)
-    island_signals.sig_ai_answer.connect(island.show_ai_answer)
     island_signals.sig_unmatched.connect(island.show_unmatched)
     island_signals.sig_exit.connect(island.show_exit)
 
@@ -321,7 +260,7 @@ def main():
         sys.exit(1)
 
     # Start background voice thread
-    voice_thread = VoiceWorkerThread(listener, matcher, executor, ai, island_signals)
+    voice_thread = VoiceWorkerThread(listener, matcher, executor, island_signals)
     voice_thread.start()
 
     # Handle clean exit

@@ -93,52 +93,7 @@ def test_unrelated_sentence_does_not_match(actual_config):
     assert res.matched is False
 
 
-def test_gemini_query_extraction(actual_config):
-    from core.matcher import extract_gemini_query
 
-    # Direct questions with 'gemini'
-    is_gem, q = extract_gemini_query("gemini saat kaç")
-    assert is_gem is True
-    assert q == "saat kaç"
-
-    # Phonetic Turkish transcription 'cemini'
-    is_gem2, q2 = extract_gemini_query("cemini gökyüzü neden mavi")
-    assert is_gem2 is True
-    assert q2 == "gökyüzü neden mavi"
-
-    # Standalone 'gemini' for waiting mode
-    is_gem3, q3 = extract_gemini_query("gemini")
-    assert is_gem3 is True
-    assert q3 == ""
-
-    # Conversational wake greeting phrases: 'gemini dinle', 'cemil dinle', 'hey gemini'
-    is_gem_dinle, q_dinle = extract_gemini_query("gemini dinle")
-    assert is_gem_dinle is True
-    assert q_dinle == ""
-
-    is_gem_cemil, q_cemil = extract_gemini_query("cemil dinle")
-    assert is_gem_cemil is True
-    assert q_cemil == ""
-
-    is_gem_hey, q_hey = extract_gemini_query("hey gemini")
-    assert is_gem_hey is True
-    assert q_hey == ""
-
-    is_gem_merhaba, q_merhaba = extract_gemini_query("merhaba gemini")
-    assert is_gem_merhaba is True
-    assert q_merhaba == ""
-
-    # 'geminiye sor ...'
-    is_gem4, q4 = extract_gemini_query("geminiye sor yarın hava nasıl")
-    assert is_gem4 is True
-    assert q4 == "yarın hava nasıl"
-
-    # 'haydar' commands must NEVER match gemini
-    is_gem5, _ = extract_gemini_query("haydar 15 saniye ileri sar")
-    assert is_gem5 is False
-
-    is_gem6, _ = extract_gemini_query("haydar saat kaç")
-    assert is_gem6 is False
 
 
 def test_spotify_commands(actual_config):

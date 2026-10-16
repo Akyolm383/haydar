@@ -56,10 +56,7 @@ class IslandSignals(QObject):
     sig_audio_level = pyqtSignal(float)
     sig_transcribed = pyqtSignal(str)
     sig_waiting_command = pyqtSignal()
-    sig_gemini_waiting = pyqtSignal()
     sig_executed = pyqtSignal(str, list, float)  # desc, keys, score
-    sig_ai_thinking = pyqtSignal(str)           # query prompt
-    sig_ai_answer = pyqtSignal(str, str)         # prompt, answer
     sig_unmatched = pyqtSignal(str, float)       # text, score
     sig_exit = pyqtSignal()
 
@@ -138,10 +135,6 @@ class DynamicIsland(QWidget):
     THEME_ERROR_BG = QColor(28, 10, 14, 252)            # Crimson dark glass
     THEME_ERROR_BORDER = QColor(239, 68, 68, 230)       # Glowing ruby red border
     THEME_ERROR_VIS = QColor(248, 113, 113)             # Fiery warning red visualizer
-
-    THEME_AI_BG = QColor(22, 14, 38, 252)               # Royal violet dark glass
-    THEME_AI_BORDER = QColor(168, 85, 247, 240)         # Electric purple border
-    THEME_AI_VIS = QColor(192, 132, 252)                # Neon violet visualizer
 
     def __init__(self):
         super().__init__()
@@ -452,32 +445,6 @@ class DynamicIsland(QWidget):
         # Generous 6-second window before auto-retracting
         self.hide_timer.start(6000)
 
-    def show_gemini_waiting(self):
-        """Triggered when user says just 'Gemini' and system is waiting for the question."""
-        self.morph_theme(
-            self.THEME_AI_BG,
-            self.THEME_AI_BORDER,
-            self.THEME_AI_VIS,
-            border_width=1.8,
-            duration=260,
-        )
-
-        self.icon_label.setText("✨")
-        self.text_label.setText("Efendim? Dinliyorum...")
-        self.text_label.setStyleSheet("color: #FFFFFF; background: transparent;")
-        self.badge_label.setText("Gemini AI")
-        self.badge_label.setStyleSheet(
-            "background: rgba(168, 85, 247, 0.22); color: #C084FC; font-weight: bold; border-radius: 6px; padding: 3px 8px; border: 1px solid rgba(168, 85, 247, 0.35);"
-        )
-        self.badge_label.show()
-
-        self.morph_width(320)
-        if not self.is_visible_on_screen:
-            self.slide_down()
-        self.update()
-
-        self.hide_timer.start(7000)
-
     def show_transcribing(self, raw_text: str):
         """Triggered when speech is transcribed."""
         self.icon_label.setText("💬")
@@ -544,67 +511,6 @@ class DynamicIsland(QWidget):
 
         # Disappear after 1.8 seconds of glory
         self.hide_timer.start(1800)
-
-    def show_ai_thinking(self, prompt: str = ""):
-        """Triggered when query is sent to Gemini and answer is generating."""
-        self.morph_theme(
-            self.THEME_AI_BG,
-            self.THEME_AI_BORDER,
-            self.THEME_AI_VIS,
-            border_width=1.8,
-            duration=240,
-        )
-
-        self.icon_label.setText("✨")
-        self.text_label.setText("Cevap hazırlanıyor...")
-        self.text_label.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
-        self.text_label.setStyleSheet("color: #FFFFFF; background: transparent;")
-        self.badge_label.setText("Gemini AI")
-        self.badge_label.setStyleSheet(
-            "background: rgba(168, 85, 247, 0.22); color: #C084FC; font-weight: bold; border-radius: 6px; padding: 3px 8px; border: 1px solid rgba(168, 85, 247, 0.35);"
-        )
-        self.badge_label.show()
-
-        self.morph_width(330)
-        if not self.is_visible_on_screen:
-            self.slide_down()
-        self.update()
-
-        # Generous wait time while network call completes
-        self.hide_timer.start(12000)
-
-    def show_ai_answer(self, prompt: str, answer: str):
-        """Triggered when Gemini AI provides an answer."""
-        self.morph_theme(
-            self.THEME_AI_BG,
-            self.THEME_AI_BORDER,
-            self.THEME_AI_VIS,
-            border_width=1.8,
-            duration=260,
-        )
-
-        self.icon_label.setText("🤖")
-        self.text_label.setText(answer)
-        if len(answer) > 65:
-            self.text_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
-        else:
-            self.text_label.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
-        self.text_label.setStyleSheet("color: #FFFFFF; background: transparent;")
-        self.setToolTip(answer)
-
-        self.badge_label.setText("Gemini AI")
-        self.badge_label.setStyleSheet(
-            "background: rgba(168, 85, 247, 0.22); color: #C084FC; font-weight: bold; border-radius: 6px; padding: 3px 8px; border: 1px solid rgba(168, 85, 247, 0.35);"
-        )
-        self.badge_label.show()
-
-        needed_width = max(380, min(740, len(answer) * 9 + 140))
-        self.morph_width(needed_width)
-        if not self.is_visible_on_screen:
-            self.slide_down()
-
-        # Generous 9-second display time so user can comfortably read it
-        self.hide_timer.start(9000)
 
     def enterEvent(self, event):
         """When user hovers mouse over island, pause auto-hide timer to allow reading."""

@@ -23,30 +23,6 @@ Haydar; mikrofonunuzdan gelen Türkçe konuşmaları **Google Speech API** ile m
 
 ---
 
-## 🤖 Özel "Gemini" Anahtar Kelimesi ile Yapay Zeka Sohbeti
-
-Yapay zeka asistanı, masaüstü komutlarından tamamen ayrılmıştır. Böylece *"Haydar"* dediğinizde veya bir masaüstü komutu anlaşılamadığında araya yapay zeka girmez!
-
-Yapay zekaya soru sormak için **"Gemini"** anahtar kelimesini kullanmanız yeterlidir:
-- *"Gemini saat kaç?"* -> `Şu an saat 14:35.`
-- *"Gemini bugün günlerden ne?"* -> `Bugün 16.10.2026, Cuma.`
-- *"Gemini gökyüzü neden mavi?"* -> Gemini AI ile akıllı ve özlü Türkçe yanıt.
-- **Sadece *"Gemini"*** derseniz ada inip **"✨ Gemini dinliyor... Sorunu sor kral."** der ve 7 saniye boyunca sorunuzu bekler!
-
----
-
-## 🔒 %100 Güvenli API Anahtarı (.env Desteği)
-
-API anahtarınızın yanlışlıkla GitHub'a yüklenmesini önlemek için çok katmanlı güvenlik sağlanmıştır:
-1. **`.env` Dosyası:** Ana dizindeki `.env` dosyasını açıp anahtarınızı yapıştırın:
-   ```env
-   GEMINI_API_KEY=AIzaSy...
-   ```
-2. **`.gitignore` Koruması:** `.env` dosyası git tarafından tamamen yoksayılır ve ASLA GitHub reposuna gitmez.
-3. **Pre-Commit Engelleyici:** Yanlışlıkla başka bir dosyaya API anahtarı yapıştırsanız bile, projeye entegre edilen yerleşik güvenlik kancası (`pre-commit`) anahtarı tespit edip commit'i anında durdurur!
-
----
-
 ## 🏝️ Otomatik Gizlenen Dinamik Ada (Dynamic Island)
 
 - **Göz Yormaz, Ekranda Sürekli Durmaz:** Normalde ada ekranın üst çerçevesinin arkasında gizlidir, ekranınız %100 temiz kalır.
@@ -102,8 +78,6 @@ Haydar'ı sonlandırmak için **3 pratik yöntem** mevcuttur:
 | **"karışık çal"**, **"şarkıları karıştır"** | Karışık çalmayı açar / kapatır | `Ctrl + S` |
 | **"şarkıyı tekrarla"**, **"tekrar çal"** | Tekrar çalmayı açar / kapatır | `Ctrl + R` |
 | **"şarkıyı beğen"**, **"beğenilenlere ekle"** | Çalan şarkıyı beğenilenlere ekler | `Alt + Shift + B` |
-| **"saat kaç"**, **"tarih ne"** | Tarih ve saat bilgisi | `Dinamik Ada Yanıtı` |
-| **Genel sorular (Gemini AI)** | Yapay zeka ile yanıtlar | `Dinamik Ada AI Yanıtı` |
 | **"haydarı kapat"**, **"asistanı kapat"** | Haydar uygulamasından çıkar | `Çıkış` |
 
 ---

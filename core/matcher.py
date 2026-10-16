@@ -79,85 +79,6 @@ class MatchResult:
     reason: str = ""
 
 
-GEMINI_TRIGGERS = [
-    "gemini",
-    "cemini",
-    "ceminay",
-    "geminay",
-    "cimini",
-    "gimini",
-    "cimine",
-    "cebini",
-    "cemil",
-    "yapay zeka",
-]
-
-
-def extract_gemini_query(text: str) -> Tuple[bool, str]:
-    """
-    Checks if speech input is addressed to Gemini AI.
-    Handles Turkish speech recognition phonetic variations:
-    - 'gemi ne', 'gemi ni', 'gemı ne', 'gemı ni'
-    - 'gemini', 'gemine', 'geminay', 'cemini', 'cemil'
-    - 'ge mi ne', 'yapay zeka'
-    """
-    normalized = normalize_turkish(text)
-    words = normalized.split()
-    if not words:
-        return False, ""
-
-    # Optional greeting prefixes like 'hey', 'ey', 'alo', 'merhaba', 'selam', 'ya'
-    if words[0] in ("hey", "ey", "alo", "merhaba", "selam", "ya") and len(words) > 1:
-        words = words[1:]
-
-    # Normalized phonetic words where dotless ı -> i
-    i_words = [w.replace("ı", "i") for w in words]
-    wake_len = 0
-
-    # 3-word trigger: 'ge mi ne', 'ge mi ni'
-    if len(i_words) >= 3 and i_words[0] == "ge" and i_words[1] == "mi" and i_words[2] in ("ne", "ni"):
-        wake_len = 3
-    # 2-word triggers: 'gemi ne', 'gemi ni', 'cemi ne', 'cemi ni', 'yapay zeka'
-    elif len(i_words) >= 2 and (
-        (i_words[0] in ("gemi", "cemi", "cami", "camı") and i_words[1] in ("ne", "ni", "nin", "ye", "de"))
-        or (i_words[0] == "yapay" and i_words[1] in ("zeka", "zekaya", "zekam"))
-    ):
-        wake_len = 2
-    else:
-        # 1-word triggers
-        single_triggers = {
-            "gemini", "gemine", "geminay", "geminiye", "cemini", "ceminay",
-            "cemine", "cemil", "cemile", "gimini", "cimini", "cebini", "camini",
-            "gemi", "cemi"
-        }
-        for idx in range(min(2, len(i_words))):
-            w = i_words[idx]
-            if w in single_triggers or fuzz.ratio(w, "gemini") >= 72 or fuzz.ratio(w, "geminay") >= 75:
-                wake_len = idx + 1
-                break
-
-    if wake_len == 0:
-        return False, ""
-
-    # Query is everything after the wake phrase
-    remaining_words = words[wake_len:]
-    remaining = " ".join(remaining_words).strip()
-
-    # Strip conversational filler greetings
-    filler_words = (
-        "dinle", "dinliyor musun", "bakar misin", "bakar mısın",
-        "burada misin", "burada mısın", "sor", "soru", "efendim", "alo", "baksana"
-    )
-    for filler in filler_words:
-        if remaining == filler:
-            remaining = ""
-            break
-        elif remaining.startswith(filler + " "):
-            remaining = remaining[len(filler):].strip()
-
-    return True, remaining
-
-
 class CommandMatcher:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
@@ -166,10 +87,6 @@ class CommandMatcher:
         self.default_threshold: float = float(self.settings.get("default_threshold", 70))
         self.wake_word_enabled: bool = bool(self.settings.get("wake_word_enabled", False))
         self.wake_word: str = normalize_turkish(self.settings.get("wake_word", "haydar"))
-
-    def extract_gemini_query(self, text: str) -> Tuple[bool, str]:
-        """Extracts Gemini query if addressed to Gemini."""
-        return extract_gemini_query(text)
 
     def reload_config(self, config: Dict[str, Any]):
         """Reloads configuration and commands."""

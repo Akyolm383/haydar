@@ -26,12 +26,10 @@ Desktop.ini
 .env
 .env.*
 *.env
-!.env.example
 config/secrets.json
 config/config.local.json
 *secret*
 *credentials*
 api_key*
-gemini_key*
 
 
