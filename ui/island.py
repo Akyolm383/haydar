@@ -56,6 +56,7 @@ class IslandSignals(QObject):
     sig_audio_level = pyqtSignal(float)
     sig_transcribed = pyqtSignal(str)
     sig_waiting_command = pyqtSignal()
+    sig_window_switch_mode = pyqtSignal()
     sig_executed = pyqtSignal(str, list, float)  # desc, keys, score
     sig_unmatched = pyqtSignal(str, float)       # text, score
     sig_exit = pyqtSignal()
@@ -444,6 +445,30 @@ class DynamicIsland(QWidget):
 
         # Generous 6-second window before auto-retracting
         self.hide_timer.start(6000)
+
+    def show_window_switch_mode(self):
+        """Triggered when Alt+Tab window switcher opens and assistant awaits window selection."""
+        self.bg_color = QColor(self.THEME_DEFAULT_BG)
+        self.border_color = QColor(59, 130, 246, 230)  # Azure blue border
+        self.border_width = 1.6
+        self.visualizer.set_color(QColor(96, 165, 250))  # Sky blue visualizer
+
+        self.icon_label.setText("🪟")
+        self.text_label.setText("Pencereler açıldı... Kaçıncı pencere?")
+        self.text_label.setStyleSheet("color: #FFFFFF; background: transparent;")
+        self.badge_label.setText("[ Alt + Tab ]")
+        self.badge_label.setStyleSheet(
+            "background: rgba(59, 130, 246, 0.22); color: #60A5FA; font-weight: bold; border-radius: 6px; padding: 3px 8px; border: 1px solid rgba(59, 130, 246, 0.35);"
+        )
+        self.badge_label.show()
+
+        self.morph_width(380)
+        if not self.is_visible_on_screen:
+            self.slide_down()
+        self.update()
+
+        # Generous 8-second window for user to look at windows and say number
+        self.hide_timer.start(8000)
 
     def show_transcribing(self, raw_text: str):
         """Triggered when speech is transcribed."""

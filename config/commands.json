@@ -256,14 +256,32 @@
       "threshold": 75
     },
     {
+      "id": "switch_window_mode",
+      "description": "Pencereleri göster ve pencere seç",
+      "triggers": [
+        "pencere değiştir",
+        "pencereleri değiştir",
+        "pencereyi değiştir",
+        "pencereleri göster",
+        "pencereleri aç",
+        "pencere seç",
+        "pencereler",
+        "hangi pencere",
+        "alt tab yap",
+        "alt tab aç",
+        "alt tab"
+      ],
+      "action_type": "window_switcher",
+      "threshold": 70
+    },
+    {
       "id": "switch_window",
       "description": "Sonraki uygulamaya geç",
       "triggers": [
         "uygulama değiştir",
         "sonraki pencere",
         "diğer pencere",
-        "pencereler arası geç",
-        "pencere değiştir"
+        "pencereler arası geç"
       ],
       "action_type": "hotkey",
       "keys": ["alt", "tab"],

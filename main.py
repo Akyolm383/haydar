@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import QApplication
 
 from core.executor import ActionExecutor
 from core.listener import VoiceListener
-from core.matcher import CommandMatcher
+from core.matcher import CommandMatcher, extract_window_number, normalize_turkish
 from ui.island import DynamicIsland, IslandSignals
 from utils.sound import SoundFeedback
 from utils.ui import HaydarUI, console
@@ -53,11 +53,20 @@ class VoiceWorkerThread(QThread):
         self.haydar_awake_timestamp = 0.0
         self.wake_window_seconds = 7.0
 
+        # Window switcher state ("Haydar pencere değiştir" -> Alt+Tab açıldı -> "5. pencere")
+        self.is_window_switch_active = False
+        self.window_switch_timestamp = 0.0
+        self.window_switch_timeout = 8.0
+
     def run(self):
         while self.running:
             now = time.time()
             if self.is_haydar_awake and (now - self.haydar_awake_timestamp) > self.wake_window_seconds:
                 self.is_haydar_awake = False
+
+            if self.is_window_switch_active and (now - self.window_switch_timestamp) > self.window_switch_timeout:
+                self.is_window_switch_active = False
+                self.executor.close_window_switcher()
 
             try:
                 raw_text = self.listener.listen_once()
@@ -73,6 +82,31 @@ class VoiceWorkerThread(QThread):
 
             now = time.time()
 
+            # --- CASE 0: Assistant is waiting for window selection following "Pencere değiştir" ---
+            if self.is_window_switch_active and (now - self.window_switch_timestamp) <= self.window_switch_timeout:
+                self.is_window_switch_active = False
+                self.signals.sig_transcribed.emit(raw_text)
+
+                norm_text = normalize_turkish(raw_text)
+                if any(w in norm_text for w in ["iptal", "vazgec", "vazgeç", "kapat", "cik", "çık"]):
+                    self.executor.close_window_switcher()
+                    self.signals.sig_unmatched.emit("İptal edildi", 100.0)
+                    continue
+
+                target_num = extract_window_number(raw_text)
+                if target_num is not None and 1 <= target_num <= 30:
+                    success = self.executor.switch_to_nth_window(target_num)
+                    if success:
+                        self.signals.sig_executed.emit(
+                            f"{target_num}. pencere açıldı",
+                            ["alt", f"tab x{target_num}"],
+                            100.0,
+                        )
+                else:
+                    self.executor.close_window_switcher()
+                    self.signals.sig_unmatched.emit(raw_text, 0.0)
+                continue
+
             # --- CASE 1: Assistant is waiting for command following "Haydar" ---
             if self.is_haydar_awake and (now - self.haydar_awake_timestamp) <= self.wake_window_seconds:
                 self.is_haydar_awake = False
@@ -85,6 +119,13 @@ class VoiceWorkerThread(QThread):
 
                 if match_res.matched and match_res.command:
                     cmd = match_res.command
+                    if cmd.get("id") == "switch_window_mode":
+                        self.is_window_switch_active = True
+                        self.window_switch_timestamp = time.time()
+                        self.executor.open_window_switcher()
+                        self.signals.sig_window_switch_mode.emit()
+                        continue
+
                     if cmd.get("action_type") == "exit":
                         self.signals.sig_exit.emit()
                         self.running = False
@@ -105,6 +146,20 @@ class VoiceWorkerThread(QThread):
             match_result = self.matcher.find_match(raw_text)
             processed_text, wake_detected = self.matcher.extract_command_text(raw_text)
 
+            # Direct single-shot window command: e.g. "haydar 5. pencere", "haydar 3. pencereye geç"
+            if (wake_detected or not self.matcher.wake_word_enabled) and "pencere" in processed_text:
+                direct_num = extract_window_number(processed_text)
+                if direct_num is not None and 1 <= direct_num <= 30:
+                    self.signals.sig_transcribed.emit(raw_text)
+                    success = self.executor.switch_to_nth_window(direct_num)
+                    if success:
+                        self.signals.sig_executed.emit(
+                            f"{direct_num}. pencere açıldı",
+                            ["alt", f"tab x{direct_num}"],
+                            100.0,
+                        )
+                    continue
+
             if match_result.matched and match_result.command:
                 cmd = match_result.command
 
@@ -115,7 +170,16 @@ class VoiceWorkerThread(QThread):
                     self.signals.sig_waiting_command.emit()
                     continue
 
-                # User said "Haydar [komut]" in one breath
+                # User said "Haydar pencere değiştir"
+                if cmd.get("id") == "switch_window_mode":
+                    self.is_window_switch_active = True
+                    self.window_switch_timestamp = time.time()
+                    self.signals.sig_transcribed.emit(raw_text)
+                    self.executor.open_window_switcher()
+                    self.signals.sig_window_switch_mode.emit()
+                    continue
+
+                # User said standard command in one breath
                 self.signals.sig_transcribed.emit(raw_text)
                 if cmd.get("action_type") == "exit":
                     self.signals.sig_exit.emit()
@@ -238,6 +302,7 @@ def main():
     island_signals.sig_audio_level.connect(island.handle_audio_level)
     island_signals.sig_transcribed.connect(island.show_transcribing)
     island_signals.sig_waiting_command.connect(island.show_waiting_for_command)
+    island_signals.sig_window_switch_mode.connect(island.show_window_switch_mode)
     island_signals.sig_executed.connect(island.show_executed)
     island_signals.sig_unmatched.connect(island.show_unmatched)
     island_signals.sig_exit.connect(island.show_exit)

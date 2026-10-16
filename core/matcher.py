@@ -32,6 +32,51 @@ TURKISH_NUMBERS = {
     "sekiz": "8",
     "dokuz": "9",
 }
+ORDINAL_MAP = {
+    "birinci": 1,
+    "ikinci": 2,
+    "üçüncü": 3,
+    "dördüncü": 4,
+    "beşinci": 5,
+    "altıncı": 6,
+    "yedinci": 7,
+    "sekizinci": 8,
+    "dokuzuncu": 9,
+    "onuncu": 10,
+    "ilk": 1,
+    "bir": 1,
+    "iki": 2,
+    "üç": 3,
+    "dört": 4,
+    "beş": 5,
+    "altı": 6,
+    "yedi": 7,
+    "sekiz": 8,
+    "dokuz": 9,
+    "on": 10,
+}
+
+
+def extract_window_number(text: str) -> Optional[int]:
+    """
+    Extracts a window index (1-based) from speech text.
+    Handles '5. pencere', 'beşinci pencere', '3', 'ikinci', 'ilk pencere' etc.
+    """
+    if not text:
+        return None
+    norm = normalize_turkish(text)
+    m = re.search(r"\b(\d+)\b", norm)
+    if m:
+        val = int(m.group(1))
+        if 1 <= val <= 30:
+            return val
+
+    words = norm.split()
+    for w in words:
+        if w in ORDINAL_MAP:
+            return ORDINAL_MAP[w]
+
+    return None
 
 
 def normalize_turkish(text: str) -> str:

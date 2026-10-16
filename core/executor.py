@@ -50,6 +50,8 @@ class ActionExecutor:
                 target = command.get("target", "")
                 if target:
                     os.startfile(target)
+            elif action_type == "window_switcher":
+                return self.open_window_switcher()
             elif action_type == "exit":
                 if hasattr(self, "on_exit_callback") and self.on_exit_callback:
                     self.on_exit_callback()
@@ -65,6 +67,51 @@ class ActionExecutor:
 
         except Exception as e:
             print(f"[Executor Hatası] Komut çalıştırılamadı ({cmd_id}): {e}")
+            return False
+
+    def open_window_switcher(self) -> bool:
+        """Opens persistent Alt+Tab window switcher in Windows."""
+        try:
+            pyautogui.hotkey("ctrl", "alt", "tab")
+            return True
+        except Exception as e:
+            print(f"[Switcher Hatası] {e}")
+            return False
+
+    def close_window_switcher(self):
+        """Closes Alt+Tab window switcher cleanly."""
+        try:
+            pyautogui.press("escape")
+        except Exception:
+            pass
+
+    def switch_to_nth_window(self, index: int) -> bool:
+        """
+        Switches directly to the N-th window in the z-order stack using Alt+Tab.
+        index: 1-indexed (e.g. 1, 2, 3, 4, 5...)
+        """
+        try:
+            if index < 1:
+                index = 1
+            # Send escape in case persistent switcher overlay is open
+            pyautogui.press("escape")
+            time.sleep(0.04)
+
+            # Hold down Alt, press Tab N times, release Alt
+            pyautogui.keyDown("alt")
+            time.sleep(0.04)
+            for _ in range(index):
+                pyautogui.press("tab")
+                time.sleep(0.05)
+            time.sleep(0.06)
+            pyautogui.keyUp("alt")
+            return True
+        except Exception as e:
+            print(f"[Switch Window Hatası] {e}")
+            try:
+                pyautogui.keyUp("alt")
+            except Exception:
+                pass
             return False
 
     def _execute_hotkey(self, keys: List[str]):

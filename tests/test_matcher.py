@@ -170,3 +170,40 @@ def test_spotify_commands(actual_config):
     assert res_exit.command["id"] == "exit_haydar"
 
 
+def test_extract_window_number():
+    from core.matcher import extract_window_number
+
+    assert extract_window_number("5. pencere") == 5
+    assert extract_window_number("5. pencereye geç") == 5
+    assert extract_window_number("5") == 5
+    assert extract_window_number("beşinci pencere") == 5
+    assert extract_window_number("beşinci") == 5
+    assert extract_window_number("ikinci pencere") == 2
+    assert extract_window_number("ilk pencere") == 1
+    assert extract_window_number("10. pencere") == 10
+    assert extract_window_number("üçüncü pencereye geç") == 3
+    assert extract_window_number("geçersiz cümle") is None
+    assert extract_window_number("") is None
+
+
+def test_window_switcher_command(actual_config):
+    matcher = CommandMatcher(actual_config)
+
+    res1 = matcher.find_match("haydar pencere değiştir")
+    assert res1.matched is True
+    assert res1.command["id"] == "switch_window_mode"
+
+    res2 = matcher.find_match("haydar pencereleri göster")
+    assert res2.matched is True
+    assert res2.command["id"] == "switch_window_mode"
+
+    res3 = matcher.find_match("haydar alt tab")
+    assert res3.matched is True
+    assert res3.command["id"] == "switch_window_mode"
+
+    res4 = matcher.find_match("haydar pencere seç")
+    assert res4.matched is True
+    assert res4.command["id"] == "switch_window_mode"
+
+
+
