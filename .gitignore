@@ -21,3 +21,17 @@ htmlcov/
 .idea/
 Thumbs.db
 Desktop.ini
+
+# Secrets, Environment & API Keys (ASLA GitHub'a yüklenmez)
+.env
+.env.*
+*.env
+!.env.example
+config/secrets.json
+config/config.local.json
+*secret*
+*credentials*
+api_key*
+gemini_key*
+
+

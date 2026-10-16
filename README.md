@@ -23,16 +23,27 @@ Haydar; mikrofonunuzdan gelen Türkçe konuşmaları **Google Speech API** ile m
 
 ---
 
-## 🤖 Gemini AI / Akıllı Sohbet Entegrasyonu
+## 🤖 Özel "Gemini" Anahtar Kelimesi ile Yapay Zeka Sohbeti
 
-Haydar artık sadece klavye kısayollarını tetiklemekle kalmaz; tanımlı olmayan bir şey sorduğunuzda yapay zeka ile yanıtlar:
-- *"Haydar saat kaç?"* -> `14:35`
-- *"Haydar bugün günlerden ne?"* -> `Cuma, 16 Ekim 2026`
-- *"Haydar gökyüzü neden mavi?"* -> Gemini AI ile akıllı ve özlü Türkçe yanıt
-- Yanıtlar Dinamik Ada üzerinde şık bir mor/mavi AI rozetiyle gösterilir ve birkaç saniye sonra ada kapanır.
+Yapay zeka asistanı, masaüstü komutlarından tamamen ayrılmıştır. Böylece *"Haydar"* dediğinizde veya bir masaüstü komutu anlaşılamadığında araya yapay zeka girmez!
 
-> **Gemini API Anahtarı Nasıl Eklenir?**
-> `config/commands.json` dosyasını açıp `"gemini_api_key": "AIzaSy..."` alanına Google AI Studio anahtarınızı yazabilir veya ortam değişkeni olarak `GEMINI_API_KEY` tanımlayabilirsiniz. Anahtar olmasa dahi saat/tarih gibi temel komutlar yerel olarak anında çalışır.
+Yapay zekaya soru sormak için **"Gemini"** anahtar kelimesini kullanmanız yeterlidir:
+- *"Gemini saat kaç?"* -> `Şu an saat 14:35.`
+- *"Gemini bugün günlerden ne?"* -> `Bugün 16.10.2026, Cuma.`
+- *"Gemini gökyüzü neden mavi?"* -> Gemini AI ile akıllı ve özlü Türkçe yanıt.
+- **Sadece *"Gemini"*** derseniz ada inip **"✨ Gemini dinliyor... Sorunu sor kral."** der ve 7 saniye boyunca sorunuzu bekler!
+
+---
+
+## 🔒 %100 Güvenli API Anahtarı (.env Desteği)
+
+API anahtarınızın yanlışlıkla GitHub'a yüklenmesini önlemek için çok katmanlı güvenlik sağlanmıştır:
+1. **`.env` Dosyası:** Ana dizindeki `.env` dosyasını açıp anahtarınızı yapıştırın:
+   ```env
+   GEMINI_API_KEY=AIzaSy...
+   ```
+2. **`.gitignore` Koruması:** `.env` dosyası git tarafından tamamen yoksayılır ve ASLA GitHub reposuna gitmez.
+3. **Pre-Commit Engelleyici:** Yanlışlıkla başka bir dosyaya API anahtarı yapıştırsanız bile, projeye entegre edilen yerleşik güvenlik kancası (`pre-commit`) anahtarı tespit edip commit'i anında durdurur!
 
 ---
 

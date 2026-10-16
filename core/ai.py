@@ -11,13 +11,63 @@ except ImportError:
     HAS_GENAI = False
 
 
+def resolve_api_key(explicit_key: Optional[str] = None) -> Optional[str]:
+    """
+    Safely resolves Gemini API key from multiple sources without risking git leakage:
+    1. Explicitly passed key
+    2. Environment variables (GEMINI_API_KEY, GOOGLE_API_KEY)
+    3. .env file in root directory
+    4. config/secrets.json
+    """
+    if explicit_key and explicit_key.strip():
+        return explicit_key.strip()
+
+    for var in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        val = os.environ.get(var)
+        if val and val.strip():
+            return val.strip()
+
+    # Read from local .env (protected by .gitignore)
+    env_path = os.path.abspath(".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        if k.strip() in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+                            cleaned = v.strip().strip("'\"")
+                            if cleaned:
+                                return cleaned
+        except Exception:
+            pass
+
+    # Read from config/secrets.json (protected by .gitignore)
+    secrets_path = os.path.abspath("config/secrets.json")
+    if os.path.exists(secrets_path):
+        try:
+            import json
+            with open(secrets_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                val = data.get("gemini_api_key")
+                if val and str(val).strip():
+                    return str(val).strip()
+        except Exception:
+            pass
+
+    return None
+
+
 class GeminiAssistant:
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        self.api_key = resolve_api_key(api_key)
         self.client = None
-        if HAS_GENAI and self.api_key and self.api_key.strip():
+        if HAS_GENAI and self.api_key:
             try:
-                self.client = genai.Client(api_key=self.api_key.strip())
+                self.client = genai.Client(api_key=self.api_key)
             except Exception as e:
                 print(f"[Gemini Başlatma Hatası] {e}")
 
@@ -49,7 +99,7 @@ class GeminiAssistant:
 
         # 2. Gemini AI Query
         if not self.client:
-            return "Cevaplayabilmem için commands.json'a Gemini API anahtarı ekleyin."
+            return "Cevaplayabilmem için .env dosyasına GEMINI_API_KEY ekleyin."
 
         try:
             sys_instruction = (
