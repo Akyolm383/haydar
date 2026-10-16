@@ -84,11 +84,16 @@ class VoiceWorkerThread(QThread):
 
             # --- CASE 1: Assistant is waiting for GEMINI follow-up question ---
             if self.is_gemini_awake and (now - self.gemini_awake_timestamp) <= self.wake_window_seconds:
+                # If user repeated "Gemini" / "gemi ne" without asking a question yet, keep waiting
+                is_gem, clean_query = self.matcher.extract_gemini_query(raw_text)
+                if is_gem and not clean_query:
+                    self.gemini_awake_timestamp = time.time()
+                    self.signals.sig_gemini_waiting.emit()
+                    continue
+
                 self.is_gemini_awake = False
                 self.signals.sig_transcribed.emit(raw_text)
 
-                # If user repeated "Gemini ..." in their follow-up, clean it up
-                is_gem, clean_query = self.matcher.extract_gemini_query(raw_text)
                 query_to_send = clean_query if (is_gem and clean_query) else raw_text
 
                 answer = self.ai.answer(query_to_send)

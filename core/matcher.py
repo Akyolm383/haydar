@@ -95,15 +95,11 @@ GEMINI_TRIGGERS = [
 
 def extract_gemini_query(text: str) -> Tuple[bool, str]:
     """
-    Checks if speech input is explicitly addressed to Gemini AI.
-    Returns (is_gemini_detected, query_text).
-    Examples:
-      "gemini saat kaç" -> (True, "saat kaç")
-      "gemini dinle" -> (True, "")  # Waiting mode
-      "gemini" -> (True, "")  # Waiting mode
-      "cemil dinle" -> (True, "")  # Turkish STT phonetic match
-      "hey gemini hava nasıl" -> (True, "hava nasıl")
-      "haydar 15 saniye ileri sar" -> (False, "")
+    Checks if speech input is addressed to Gemini AI.
+    Handles Turkish speech recognition phonetic variations:
+    - 'gemi ne', 'gemi ni', 'gemı ne', 'gemı ni'
+    - 'gemini', 'gemine', 'geminay', 'cemini', 'cemil'
+    - 'ge mi ne', 'yapay zeka'
     """
     normalized = normalize_turkish(text)
     words = normalized.split()
@@ -114,37 +110,50 @@ def extract_gemini_query(text: str) -> Tuple[bool, str]:
     if words[0] in ("hey", "ey", "alo", "merhaba", "selam", "ya") and len(words) > 1:
         words = words[1:]
 
-    # Check if any of the first 2 words matches a gemini trigger
-    gemini_idx = -1
-    for i in range(min(2, len(words))):
-        w = words[i]
-        for trig in GEMINI_TRIGGERS:
-            if fuzz.ratio(w, trig) >= 74:
-                gemini_idx = i
+    # Normalized phonetic words where dotless ı -> i
+    i_words = [w.replace("ı", "i") for w in words]
+    wake_len = 0
+
+    # 3-word trigger: 'ge mi ne', 'ge mi ni'
+    if len(i_words) >= 3 and i_words[0] == "ge" and i_words[1] == "mi" and i_words[2] in ("ne", "ni"):
+        wake_len = 3
+    # 2-word triggers: 'gemi ne', 'gemi ni', 'cemi ne', 'cemi ni', 'yapay zeka'
+    elif len(i_words) >= 2 and (
+        (i_words[0] in ("gemi", "cemi", "cami", "camı") and i_words[1] in ("ne", "ni", "nin", "ye", "de"))
+        or (i_words[0] == "yapay" and i_words[1] in ("zeka", "zekaya", "zekam"))
+    ):
+        wake_len = 2
+    else:
+        # 1-word triggers
+        single_triggers = {
+            "gemini", "gemine", "geminay", "geminiye", "cemini", "ceminay",
+            "cemine", "cemil", "cemile", "gimini", "cimini", "cebini", "camini",
+            "gemi", "cemi"
+        }
+        for idx in range(min(2, len(i_words))):
+            w = i_words[idx]
+            if w in single_triggers or fuzz.ratio(w, "gemini") >= 72 or fuzz.ratio(w, "geminay") >= 75:
+                wake_len = idx + 1
                 break
-        if gemini_idx != -1:
-            break
 
-    # Also support 'yapay zeka' (2 words)
-    if gemini_idx == -1 and len(words) >= 2:
-        if words[0] == "yapay" and words[1] == "zeka":
-            gemini_idx = 1
-
-    if gemini_idx == -1:
+    if wake_len == 0:
         return False, ""
 
-    # The query is everything after the gemini trigger word
-    remaining_words = words[gemini_idx + 1 :]
+    # Query is everything after the wake phrase
+    remaining_words = words[wake_len:]
     remaining = " ".join(remaining_words).strip()
 
-    # Strip conversational wake greetings like 'dinle', 'dinliyor musun', 'bakar mısın', 'sor', 'soru'
-    filler_words = ("sor", "dinle", "dinliyor musun", "bakar mısın", "burada mısın", "efendim", "alo", "baksana")
+    # Strip conversational filler greetings
+    filler_words = (
+        "dinle", "dinliyor musun", "bakar misin", "bakar mısın",
+        "burada misin", "burada mısın", "sor", "soru", "efendim", "alo", "baksana"
+    )
     for filler in filler_words:
         if remaining == filler:
             remaining = ""
             break
         elif remaining.startswith(filler + " "):
-            remaining = remaining[len(filler) :].strip()
+            remaining = remaining[len(filler):].strip()
 
     return True, remaining
 

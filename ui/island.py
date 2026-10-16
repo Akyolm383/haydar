@@ -491,6 +491,9 @@ class DynamicIsland(QWidget):
             self.slide_down()
         self.update()
 
+        # Safety auto-retract if processing hangs or takes too long
+        self.hide_timer.start(5000)
+
     def show_executed(self, desc: str, keys: List[str], score: float):
         """Triggered when command matched and executed - morphs to radiant cyber emerald!"""
         self.morph_theme(

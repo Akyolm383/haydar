@@ -109,21 +109,41 @@ class GeminiAssistant:
                 "Markdown başlıkları, uzun listeler kullanma."
             )
 
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=sys_instruction,
-                    max_output_tokens=60,
-                    temperature=0.7,
-                ),
-            )
+            models_to_try = ["gemini-flash-latest", "gemini-3.8-flash"]
+            response = None
+            last_err = None
+
+            for model_name in models_to_try:
+                try:
+                    response = self.client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=sys_instruction,
+                            max_output_tokens=60,
+                            temperature=0.7,
+                        ),
+                    )
+                    if response and response.text:
+                        last_err = None
+                        break
+                except Exception as ex:
+                    last_err = ex
+                    continue
 
             if response and response.text:
                 clean_text = response.text.replace("\n", " ").strip()
                 # Clean up any trailing quotation marks or bold markers
                 clean_text = re.sub(r"[*_`]", "", clean_text)
                 return clean_text
+
+            if last_err:
+                err_msg = str(last_err)
+                if "404" in err_msg:
+                    return "Model bulunamadı (404)."
+                elif "503" in err_msg or "UNAVAILABLE" in err_msg:
+                    return "Gemini sunucuları şu an yoğun, lütfen birazdan tekrar deneyin."
+                return f"Yapay zeka yanıt veremedi: {err_msg[:40]}"
 
             return "Bunu tam anlayamadım, tekrar eder misiniz?"
 
