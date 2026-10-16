@@ -96,6 +96,7 @@ class VoiceWorkerThread(QThread):
 
                 query_to_send = clean_query if (is_gem and clean_query) else raw_text
 
+                self.signals.sig_ai_thinking.emit(query_to_send)
                 answer = self.ai.answer(query_to_send)
                 self.signals.sig_ai_answer.emit(query_to_send, answer)
                 continue
@@ -141,6 +142,7 @@ class VoiceWorkerThread(QThread):
                 else:
                     # "Gemini [soru]" tek seferde söyledi
                     self.signals.sig_transcribed.emit(raw_text)
+                    self.signals.sig_ai_thinking.emit(gemini_query)
                     answer = self.ai.answer(gemini_query)
                     self.signals.sig_ai_answer.emit(gemini_query, answer)
                 continue
@@ -287,6 +289,7 @@ def main():
     island_signals.sig_waiting_command.connect(island.show_waiting_for_command)
     island_signals.sig_gemini_waiting.connect(island.show_gemini_waiting)
     island_signals.sig_executed.connect(island.show_executed)
+    island_signals.sig_ai_thinking.connect(island.show_ai_thinking)
     island_signals.sig_ai_answer.connect(island.show_ai_answer)
     island_signals.sig_unmatched.connect(island.show_unmatched)
     island_signals.sig_exit.connect(island.show_exit)
