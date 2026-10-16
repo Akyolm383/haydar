@@ -1,0 +1,327 @@
+{
+  "settings": {
+    "default_threshold": 70,
+    "cooldown_seconds": 0.8,
+    "wake_word_enabled": true,
+    "wake_word": "haydar",
+    "language": "tr-TR",
+    "feedback_sound": false,
+    "energy_threshold_adjustment": true
+  },
+  "commands": [
+    {
+      "id": "show_desktop",
+      "description": "Masaüstünü göster veya gizle",
+      "triggers": [
+        "masaüstüne dön",
+        "masaüstü",
+        "masaüstünü göster",
+        "pencereleri gizle",
+        "ekranı temizle",
+        "masaüstü göster"
+      ],
+      "action_type": "hotkey",
+      "keys": ["win", "d"],
+      "threshold": 70
+    },
+    {
+      "id": "media_forward_5s",
+      "description": "Medyayı 5 saniye ileri sar",
+      "triggers": [
+        "ileriye sar",
+        "ileri sar",
+        "videoyu ileri sar",
+        "5 saniye ileri",
+        "5 saniye ileri sar",
+        "beş saniye ileri",
+        "beş saniye ileri sar",
+        "ileri al",
+        "videoyu ilerlet",
+        "biraz ileri sar",
+        "sadece ileriye sar",
+        "videoyu ileriye sar"
+      ],
+      "action_type": "press",
+      "keys": ["right"],
+      "repeat": 1,
+      "threshold": 70
+    },
+    {
+      "id": "media_forward_10s",
+      "description": "Medyayı 10 saniye ileri sar",
+      "triggers": [
+        "10 saniye ileri",
+        "10 saniye ileri sar",
+        "on saniye ileri",
+        "on saniye ileri sar",
+        "10 saniye ilerlet",
+        "10 saniye ileriye sar"
+      ],
+      "action_type": "press",
+      "keys": ["right"],
+      "repeat": 2,
+      "threshold": 70
+    },
+    {
+      "id": "media_forward_15s",
+      "description": "Medyayı 15 saniye ileri sar",
+      "triggers": [
+        "15 saniye ileri",
+        "15 saniye ileri sar",
+        "on beş saniye ileri",
+        "on beş saniye ileri sar",
+        "onbeş saniye ileri",
+        "onbeş saniye ileri sar",
+        "15 saniye ilerlet",
+        "15 saniye ileriye sar"
+      ],
+      "action_type": "press",
+      "keys": ["right"],
+      "repeat": 3,
+      "threshold": 70
+    },
+    {
+      "id": "media_forward_30s",
+      "description": "Medyayı 30 saniye ileri sar",
+      "triggers": [
+        "30 saniye ileri",
+        "30 saniye ileri sar",
+        "otuz saniye ileri",
+        "otuz saniye ileri sar"
+      ],
+      "action_type": "press",
+      "keys": ["right"],
+      "repeat": 6,
+      "threshold": 70
+    },
+    {
+      "id": "media_backward_5s",
+      "description": "Medyayı 5 saniye geri sar",
+      "triggers": [
+        "geriye sar",
+        "geri sar",
+        "videoyu geri sar",
+        "5 saniye geri",
+        "5 saniye geri sar",
+        "beş saniye geri",
+        "beş saniye geri sar",
+        "geri al",
+        "biraz geri al",
+        "sadece geriye sar",
+        "videoyu geriye sar"
+      ],
+      "action_type": "press",
+      "keys": ["left"],
+      "repeat": 1,
+      "threshold": 70
+    },
+    {
+      "id": "media_backward_10s",
+      "description": "Medyayı 10 saniye geri sar",
+      "triggers": [
+        "10 saniye geri",
+        "10 saniye geri sar",
+        "on saniye geri",
+        "on saniye geri sar"
+      ],
+      "action_type": "press",
+      "keys": ["left"],
+      "repeat": 2,
+      "threshold": 70
+    },
+    {
+      "id": "media_backward_15s",
+      "description": "Medyayı 15 saniye geri sar",
+      "triggers": [
+        "15 saniye geri",
+        "15 saniye geri sar",
+        "on beş saniye geri",
+        "on beş saniye geri sar",
+        "onbeş saniye geri",
+        "onbeş saniye geri sar",
+        "15 saniye geriye sar"
+      ],
+      "action_type": "press",
+      "keys": ["left"],
+      "repeat": 3,
+      "threshold": 70
+    },
+    {
+      "id": "media_backward_30s",
+      "description": "Medyayı 30 saniye geri sar",
+      "triggers": [
+        "30 saniye geri",
+        "30 saniye geri sar",
+        "otuz saniye geri",
+        "otuz saniye geri sar"
+      ],
+      "action_type": "press",
+      "keys": ["left"],
+      "repeat": 6,
+      "threshold": 70
+    },
+    {
+      "id": "media_play_pause",
+      "description": "Medyayı duraklat veya oynat",
+      "triggers": [
+        "video dursun",
+        "videoyu durdur",
+        "video dur",
+        "video beklesin",
+        "durdur",
+        "video oynasın",
+        "videoyu oynat",
+        "oynat",
+        "devam et",
+        "beklet",
+        "duraklat"
+      ],
+      "action_type": "press",
+      "keys": ["space"],
+      "threshold": 70
+    },
+    {
+      "id": "media_fullscreen",
+      "description": "Tam ekrana geç veya tam ekrandan çık",
+      "triggers": [
+        "tam ekran",
+        "ekranı kapla",
+        "tam ekrandan çık",
+        "küçük ekran"
+      ],
+      "action_type": "press",
+      "keys": ["f"],
+      "threshold": 70
+    },
+    {
+      "id": "volume_up",
+      "description": "Sesi artır",
+      "triggers": [
+        "ses artsın",
+        "ses yükselsin",
+        "sesi aç",
+        "sesi yükselt",
+        "sesi artır",
+        "ses artır",
+        "ses aç",
+        "sesi çoğalt",
+        "ses açılsın"
+      ],
+      "action_type": "press",
+      "keys": ["volumeup"],
+      "repeat": 3,
+      "threshold": 70
+    },
+    {
+      "id": "volume_down",
+      "description": "Sesi kıs",
+      "triggers": [
+        "ses azalsın",
+        "ses kısılsın",
+        "ses düşsün",
+        "sesi kıs",
+        "sesi azalt",
+        "ses kıs",
+        "ses insin"
+      ],
+      "action_type": "press",
+      "keys": ["volumedown"],
+      "repeat": 3,
+      "threshold": 70
+    },
+    {
+      "id": "volume_mute",
+      "description": "Sesi kapat veya aç",
+      "triggers": [
+        "sesi kapat",
+        "sustur",
+        "sesi kes",
+        "sesi aç kapa"
+      ],
+      "action_type": "press",
+      "keys": ["volumemute"],
+      "threshold": 70
+    },
+    {
+      "id": "close_window",
+      "description": "Aktif pencereyi kapat",
+      "triggers": [
+        "pencereyi kapat",
+        "uygulamayı kapat",
+        "programı kapat",
+        "aktif pencereyi kapat"
+      ],
+      "action_type": "hotkey",
+      "keys": ["alt", "f4"],
+      "threshold": 75
+    },
+    {
+      "id": "switch_window",
+      "description": "Sonraki uygulamaya geç",
+      "triggers": [
+        "uygulama değiştir",
+        "sonraki pencere",
+        "diğer pencere",
+        "pencereler arası geç",
+        "pencere değiştir"
+      ],
+      "action_type": "hotkey",
+      "keys": ["alt", "tab"],
+      "threshold": 70
+    },
+    {
+      "id": "browser_new_tab",
+      "description": "Yeni tarayıcı sekmesi aç",
+      "triggers": [
+        "yeni sekme",
+        "yeni sekme aç"
+      ],
+      "action_type": "hotkey",
+      "keys": ["ctrl", "t"],
+      "threshold": 70
+    },
+    {
+      "id": "browser_close_tab",
+      "description": "Aktif sekmeyi kapat",
+      "triggers": [
+        "sekmeyi kapat",
+        "bu sekmeyi kapat"
+      ],
+      "action_type": "hotkey",
+      "keys": ["ctrl", "w"],
+      "threshold": 70
+    },
+    {
+      "id": "refresh_page",
+      "description": "Sayfayı yenile",
+      "triggers": [
+        "sayfayı yenile",
+        "yenile",
+        "sayfa yenile"
+      ],
+      "action_type": "press",
+      "keys": ["f5"],
+      "threshold": 70
+    },
+    {
+      "id": "exit_haydar",
+      "description": "Haydar uygulamasını kapatır",
+      "triggers": [
+        "kapat",
+        "kendini kapat",
+        "kapan",
+        "çıkış",
+        "çık",
+        "haydarı kapat",
+        "asistanı kapat",
+        "haydar çıkış",
+        "haydardan çık",
+        "haydar kapat",
+        "asistan kapat",
+        "uygulamadan çık"
+      ],
+      "action_type": "exit",
+      "threshold": 75
+    }
+  ]
+}
