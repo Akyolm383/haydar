@@ -460,6 +460,38 @@ def test_press_escape_and_exit_disambiguation(actual_config):
     assert matcher.find_match("haydarı kapat").command["id"] == "exit_haydar"
 
 
+def test_tab_navigation_and_fullscreen_commands(actual_config):
+    matcher = CommandMatcher(actual_config)
+    assert matcher.wake_word_enabled is True
+
+    # Fullscreen
+    res_fs1 = matcher.find_match("haydar tam ekran")
+    assert res_fs1.matched is True
+    assert res_fs1.command["id"] == "media_fullscreen"
+
+    res_fs2 = matcher.find_match("haydar tam ekran yap")
+    assert res_fs2.matched is True
+    assert res_fs2.command["id"] == "media_fullscreen"
+
+    res_fs3 = matcher.find_match("haydar tam ekrandan çık")
+    assert res_fs3.matched is True
+    assert res_fs3.command["id"] == "media_fullscreen"
+
+    # Tab navigation
+    res_next_tab = matcher.find_match("haydar sonraki sekme")
+    assert res_next_tab.matched is True
+    assert res_next_tab.command["id"] == "browser_next_tab"
+
+    res_prev_tab = matcher.find_match("haydar önceki sekme")
+    assert res_prev_tab.matched is True
+    assert res_prev_tab.command["id"] == "browser_prev_tab"
+
+    res_reopen = matcher.find_match("haydar sekmeyi geri getir")
+    assert res_reopen.matched is True
+    assert res_reopen.command["id"] == "browser_reopen_tab"
+
+
+
 
 
 

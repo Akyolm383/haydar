@@ -68,6 +68,38 @@ class VoiceWorkerThread(QThread):
         self.window_switch_timestamp = 0.0
         self.window_switch_timeout = 8.0
 
+    def _handle_browser_result(
+        self,
+        resp: dict,
+        target_name: str,
+        action_type: str = "click_button",
+        score: float = 100.0,
+    ) -> None:
+        """Unified handler for all browser automation responses."""
+        status = resp.get("status")
+        if status in ("success", "timeout"):
+            elem = resp.get("element") or target_name
+            norm_elem = str(elem).strip().lower()
+            if norm_elem in ("önceki bölüm", "onceki bolum", "önceki", "onceki"):
+                elem = "Önceki Bölüm"
+            elif norm_elem in ("sonraki bölüm", "sonraki bolum", "sonraki"):
+                elem = "Sonraki Bölüm"
+
+            if action_type == "play_video":
+                disp_msg = f"{elem} başlatıldı"
+            elif action_type == "click_button":
+                disp_msg = f"'{elem}' tıklandı"
+            else:
+                disp_msg = str(elem)
+
+            self.signals.sig_executed.emit(disp_msg, ["Web Extension"], score)
+        elif status == "no_extension":
+            self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
+        else:
+            fallback = "Video Oynatıcı" if action_type == "play_video" else "Buton"
+            missing_target = target_name or fallback
+            self.signals.sig_unmatched.emit(f"'{missing_target}' bulunamadı", 0.0)
+
     def run(self):
         while self.running:
             now = time.time()
@@ -126,22 +158,7 @@ class VoiceWorkerThread(QThread):
                 click_target = extract_browser_click_target(raw_text)
                 if click_target:
                     resp = self.executor.browser_click_custom(click_target)
-                    status = resp.get("status")
-                    if status in ("success", "timeout"):
-                        elem_text = resp.get("element", click_target)
-                        if str(elem_text).lower() in ("önceki bölüm", "onceki bolum", "önceki", "onceki"):
-                            elem_text = "Önceki Bölüm"
-                        elif str(elem_text).lower() in ("sonraki bölüm", "sonraki bolum", "sonraki"):
-                            elem_text = "Sonraki Bölüm"
-                        self.signals.sig_executed.emit(
-                            f"'{elem_text}' tıklandı",
-                            ["Web Extension"],
-                            100.0,
-                        )
-                    elif status == "no_extension":
-                        self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
-                    else:
-                        self.signals.sig_unmatched.emit(f"'{click_target}' bulunamadı", 0.0)
+                    self._handle_browser_result(resp, click_target, action_type="click_button", score=100.0)
                     continue
 
                 orig_wake_setting = self.matcher.wake_word_enabled
@@ -178,26 +195,12 @@ class VoiceWorkerThread(QThread):
 
                     if cmd.get("action_type") == "browser":
                         browser_res = self.executor.execute_browser_action(cmd)
-                        status = browser_res.get("status")
-                        if status in ("success", "timeout"):
-                            elem_text = browser_res.get("element") or cmd.get("description", "")
-                            if cmd.get("browser_action") == "play_video":
-                                disp_msg = f"{elem_text} başlatıldı"
-                            elif cmd.get("browser_action") == "click_button":
-                                disp_msg = f"'{elem_text}' tıklandı"
-                            else:
-                                disp_msg = elem_text
-                            self.signals.sig_executed.emit(
-                                disp_msg,
-                                ["Web Extension"],
-                                match_res.score or 100.0,
-                            )
-                        elif status == "no_extension":
-                            self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
-                        else:
-                            fallback_name = "Video Oynatıcı" if cmd.get("browser_action") == "play_video" else "Buton"
-                            target_name = cmd.get("target") or fallback_name
-                            self.signals.sig_unmatched.emit(f"'{target_name}' bulunamadı", 0.0)
+                        self._handle_browser_result(
+                            browser_res,
+                            cmd.get("target") or cmd.get("description", ""),
+                            action_type=cmd.get("browser_action", "click_button"),
+                            score=match_res.score or 100.0,
+                        )
                         continue
 
                     executed = self.executor.execute(cmd)
@@ -243,29 +246,12 @@ class VoiceWorkerThread(QThread):
                 if direct_match.matched and direct_match.command and direct_match.command.get("action_type") == "browser":
                     self.signals.sig_transcribed.emit(raw_text)
                     b_res = self.executor.execute_browser_action(direct_match.command)
-                    status = b_res.get("status")
-                    if status in ("success", "timeout"):
-                        elem = b_res.get("element") or direct_match.command.get("description", "")
-                        if direct_match.command.get("browser_action") == "play_video":
-                            disp = f"{elem} başlatıldı"
-                        elif direct_match.command.get("browser_action") == "click_button":
-                            if direct_match.command.get("id") == "browser_prev_episode" and str(elem).lower() in ("önceki bölüm", "onceki bolum", "önceki", "onceki"):
-                                elem = "Önceki Bölüm"
-                            elif direct_match.command.get("id") == "browser_next_episode" and str(elem).lower() in ("sonraki bölüm", "sonraki bolum", "sonraki"):
-                                elem = "Sonraki Bölüm"
-                            disp = f"'{elem}' tıklandı"
-                        else:
-                            disp = elem
-                        self.signals.sig_executed.emit(
-                            disp,
-                            ["Web Extension"],
-                            100.0,
-                        )
-                    elif status == "no_extension":
-                        self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
-                    else:
-                        target_name = direct_match.command.get("target") or "Video Oynatıcı"
-                        self.signals.sig_unmatched.emit(f"'{target_name}' bulunamadı", 0.0)
+                    self._handle_browser_result(
+                        b_res,
+                        direct_match.command.get("target") or direct_match.command.get("description", ""),
+                        action_type=direct_match.command.get("browser_action", "click_button"),
+                        score=100.0,
+                    )
                     continue
 
             # Direct single-shot window command: e.g. "haydar 5. pencere", "haydar 3. pencereye geç"
@@ -288,22 +274,7 @@ class VoiceWorkerThread(QThread):
                 if click_target:
                     self.signals.sig_transcribed.emit(raw_text)
                     resp = self.executor.browser_click_custom(click_target)
-                    status = resp.get("status")
-                    if status in ("success", "timeout"):
-                        elem_text = resp.get("element", click_target)
-                        if str(elem_text).lower() in ("önceki bölüm", "onceki bolum", "önceki", "onceki"):
-                            elem_text = "Önceki Bölüm"
-                        elif str(elem_text).lower() in ("sonraki bölüm", "sonraki bolum", "sonraki"):
-                            elem_text = "Sonraki Bölüm"
-                        self.signals.sig_executed.emit(
-                            f"'{elem_text}' tıklandı",
-                            ["Web Extension"],
-                            100.0,
-                        )
-                    elif status == "no_extension":
-                        self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
-                    else:
-                        self.signals.sig_unmatched.emit(f"'{click_target}' bulunamadı", 0.0)
+                    self._handle_browser_result(resp, click_target, action_type="click_button", score=100.0)
                     continue
 
             if match_result.matched and match_result.command:
@@ -341,25 +312,12 @@ class VoiceWorkerThread(QThread):
                 if cmd.get("action_type") == "browser":
                     self.signals.sig_transcribed.emit(raw_text)
                     browser_res = self.executor.execute_browser_action(cmd)
-                    status = browser_res.get("status")
-                    if status in ("success", "timeout"):
-                        elem_text = browser_res.get("element") or cmd.get("description", "")
-                        if cmd.get("browser_action") == "play_video":
-                            disp_msg = f"{elem_text} başlatıldı"
-                        elif cmd.get("browser_action") == "click_button":
-                            disp_msg = f"'{elem_text}' tıklandı"
-                        else:
-                            disp_msg = elem_text
-                        self.signals.sig_executed.emit(
-                            disp_msg,
-                            ["Web Extension"],
-                            match_result.score or 100.0,
-                        )
-                    elif status == "no_extension":
-                        self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
-                    else:
-                        target_name = cmd.get("target") or "Video Oynatıcı"
-                        self.signals.sig_unmatched.emit(f"'{target_name}' bulunamadı", 0.0)
+                    self._handle_browser_result(
+                        browser_res,
+                        cmd.get("target") or cmd.get("description", ""),
+                        action_type=cmd.get("browser_action", "click_button"),
+                        score=match_result.score or 100.0,
+                    )
                     continue
 
                 # User said standard command in one breath
@@ -499,12 +457,20 @@ def main():
     island_signals.sig_exit.connect(island.show_exit)
     island_signals.sig_continuous_toggled.connect(island.show_continuous_mode)
 
+    voice_thread_ref = [None]
+
+    def on_speech_start_callback():
+        # Emit speech start visualizer in continuous mode OR when Haydar is awake awaiting command
+        worker = voice_thread_ref[0]
+        if not matcher.wake_word_enabled or (worker and worker.is_haydar_awake):
+            island_signals.sig_speech_start.emit()
+
     # Initialize microphone listener with amplitude monitoring
     try:
         listener = VoiceListener(
             language=settings.get("language", "tr-TR"),
             energy_threshold_adjustment=settings.get("energy_threshold_adjustment", True),
-            on_speech_start=lambda: island_signals.sig_speech_start.emit() if not matcher.wake_word_enabled else None,
+            on_speech_start=on_speech_start_callback,
             on_audio_level=lambda lvl: island_signals.sig_audio_level.emit(lvl),
         )
 
@@ -520,6 +486,7 @@ def main():
 
     # Start background voice thread
     voice_thread = VoiceWorkerThread(listener, matcher, executor, island_signals)
+    voice_thread_ref[0] = voice_thread
     voice_thread.start()
 
     # Handle clean exit

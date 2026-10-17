@@ -184,9 +184,14 @@
       "description": "Tam ekrana geç veya tam ekrandan çık",
       "triggers": [
         "tam ekran",
+        "tam ekran yap",
+        "tam ekran aç",
         "ekranı kapla",
+        "ekrani kapla",
         "tam ekrandan çık",
-        "küçük ekran"
+        "tam ekrandan cik",
+        "küçük ekran",
+        "kucuk ekran"
       ],
       "action_type": "press",
       "keys": ["f"],
@@ -306,6 +311,46 @@
       ],
       "action_type": "hotkey",
       "keys": ["ctrl", "w"],
+      "threshold": 70
+    },
+    {
+      "id": "browser_reopen_tab",
+      "description": "Kapatılan son sekmeyi tekrar aç",
+      "triggers": [
+        "sekmeyi geri getir",
+        "kapatılan sekmeyi aç",
+        "kapatilan sekmeyi ac",
+        "son sekmeyi aç",
+        "son sekmeyi ac"
+      ],
+      "action_type": "hotkey",
+      "keys": ["ctrl", "shift", "t"],
+      "threshold": 70
+    },
+    {
+      "id": "browser_next_tab",
+      "description": "Sonraki tarayıcı sekmesine geç",
+      "triggers": [
+        "sonraki sekme",
+        "diğer sekme",
+        "diger sekme",
+        "yandaki sekme",
+        "sekme değiştir",
+        "sekme degistir"
+      ],
+      "action_type": "hotkey",
+      "keys": ["ctrl", "tab"],
+      "threshold": 70
+    },
+    {
+      "id": "browser_prev_tab",
+      "description": "Önceki tarayıcı sekmesine geç",
+      "triggers": [
+        "önceki sekme",
+        "onceki sekme"
+      ],
+      "action_type": "hotkey",
+      "keys": ["ctrl", "shift", "tab"],
       "threshold": 70
     },
     {

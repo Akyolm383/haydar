@@ -160,12 +160,18 @@ class ActionExecutor:
 
     def browser_click_custom(self, target: str) -> Dict[str, Any]:
         """Clicks a dynamically extracted target text in active browser tab."""
-        return web_bridge.send_command(action="click_button", target=target)
+        res = web_bridge.send_command(action="click_button", target=target)
+        self.last_execution_time = time.time()
+        self.last_command_id = "browser_click_custom"
+        return res
 
     def browser_scroll(self, direction: str = "down") -> Dict[str, Any]:
         """Scrolls active browser tab up or down."""
         action = "scroll_down" if direction == "down" else "scroll_up"
-        return web_bridge.send_command(action=action)
+        res = web_bridge.send_command(action=action)
+        self.last_execution_time = time.time()
+        self.last_command_id = f"browser_scroll_{direction}"
+        return res
 
     def _execute_hotkey(self, keys: List[str]):
         """Executes a hotkey sequence."""
@@ -206,6 +212,11 @@ class ActionExecutor:
             "escape": "escape",
             "space": "space",
             "boşluk": "space",
+            "bosluk": "space",
+            "tab": "tab",
+            "sekme": "tab",
+            "backspace": "backspace",
+            "sil": "backspace",
             "up": "up",
             "down": "down",
             "left": "left",

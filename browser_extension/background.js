@@ -62,6 +62,14 @@ const knownTabFrames = new Map();
 // Track in-flight click commands that were confirmed by a content script
 const activeClickConfirmations = new Map();
 
+// Helper to resolve clean, dynamic element label without hardcoded fallbacks
+function resolveElementLabel(cmd, conf) {
+  if (conf && conf.element) return conf.element;
+  if (cmd && cmd.target) return cmd.target;
+  if (cmd && cmd.action === "play_video") return "Video Oynatıcı";
+  return "Buton";
+}
+
 // Message listener from offscreen.js, content.js or popup.html
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "register_frame" && sender && sender.tab) {
@@ -79,6 +87,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     console.log("[Haydar Background] Button click started confirmation received for cmdId:", msg.cmdId);
     if (msg.cmdId) {
       activeClickConfirmations.set(msg.cmdId, { element: msg.element || "Buton" });
+      // Clean up after 10 seconds to avoid memory leak
+      setTimeout(() => {
+        activeClickConfirmations.delete(msg.cmdId);
+      }, 10000);
     }
     sendResponse({ ok: true });
     return true;
@@ -401,7 +413,7 @@ async function handleCommand(cmd) {
       if (cmd.action === "click_button" && activeClickConfirmations.has(msgId)) {
         const conf = activeClickConfirmations.get(msgId);
         activeClickConfirmations.delete(msgId);
-        return { id: msgId, status: "success", element: conf.element || cmd.target || "Önceki Bölüm" };
+        return { id: msgId, status: "success", element: resolveElementLabel(cmd, conf) };
       }
 
       // If top frame returned not_found, search subframes (if any exist)
@@ -419,7 +431,7 @@ async function handleCommand(cmd) {
             if (activeClickConfirmations.has(msgId)) {
               const conf = activeClickConfirmations.get(msgId);
               activeClickConfirmations.delete(msgId);
-              return { id: msgId, status: "success", element: conf.element || cmd.target || "Önceki Bölüm" };
+              return { id: msgId, status: "success", element: resolveElementLabel(cmd, conf) };
             }
           }
         }
@@ -430,18 +442,18 @@ async function handleCommand(cmd) {
         if (activeClickConfirmations.has(msgId)) {
           const conf = activeClickConfirmations.get(msgId);
           activeClickConfirmations.delete(msgId);
-          return { id: msgId, status: "success", element: conf.element || cmd.target || "Önceki Bölüm" };
+          return { id: msgId, status: "success", element: resolveElementLabel(cmd, conf) };
         }
         const currentTab = await chrome.tabs.get(activeTab.id).catch(() => null);
         if (!currentTab || currentTab.status === "loading" || currentTab.url !== prevUrl) {
           console.log("[Haydar Background] Page navigation detected during click. Treating as success.");
-          return { id: msgId, status: "success", element: cmd.target || "Önceki Bölüm" };
+          return { id: msgId, status: "success", element: resolveElementLabel(cmd) };
         }
       }
 
       return {
         id: msgId,
-        ...(tabResponse || { status: "success", element: cmd.target || "Önceki Bölüm" })
+        ...(tabResponse || { status: "success", element: resolveElementLabel(cmd) })
       };
     } catch (sendErr) {
       const errMsg = (sendErr && sendErr.message) ? sendErr.message.toLowerCase() : "";
@@ -451,7 +463,7 @@ async function handleCommand(cmd) {
       if (cmd.action === "click_button" && activeClickConfirmations.has(msgId)) {
         const conf = activeClickConfirmations.get(msgId);
         activeClickConfirmations.delete(msgId);
-        return { id: msgId, status: "success", element: conf.element || cmd.target || "Önceki Bölüm" };
+        return { id: msgId, status: "success", element: resolveElementLabel(cmd, conf) };
       }
 
       // Inspect if navigation occurred or context was severed
@@ -473,7 +485,7 @@ async function handleCommand(cmd) {
         return {
           id: msgId,
           status: "success",
-          element: cmd.target || "Önceki Bölüm"
+          element: resolveElementLabel(cmd)
         };
       }
 
@@ -501,14 +513,14 @@ async function handleCommand(cmd) {
         const retryResponse = await chrome.tabs.sendMessage(activeTab.id, cmd);
         return {
           id: msgId,
-          ...(retryResponse || { status: "success", element: cmd.target || "Önceki Bölüm" })
+          ...(retryResponse || { status: "success", element: resolveElementLabel(cmd) })
         };
       } catch (retryErr) {
         if (cmd.action === "click_button") {
           return {
             id: msgId,
             status: "success",
-            element: cmd.target || "Önceki Bölüm"
+            element: resolveElementLabel(cmd)
           };
         }
         throw retryErr;
