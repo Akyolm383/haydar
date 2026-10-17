@@ -236,6 +236,8 @@ class CommandMatcher:
             "oynatıcıyı aç",
             "oynatıcı aç",
             "oynatici ac",
+            "tıkla",
+            "tikla",
         )
         if any(normalized.startswith(p) for p in direct_prefixes):
             return normalized, True

@@ -35,7 +35,7 @@ function isElementVisible(el) {
   return (rect.width > 0 && rect.height > 0) || el.offsetWidth > 0 || el.offsetHeight > 0;
 }
 
-// Known platform-specific selector maps
+// Known platform-specific selector maps (Site and player explicit hooks)
 const PLATFORM_SELECTORS = {
   "sonraki bölüm": [
     // YouTube
@@ -48,7 +48,7 @@ const PLATFORM_SELECTORS = {
     // Disney+ / Prime
     "[data-testid='player-next-button']",
     ".atvwebplayersdk-next-episode",
-    // Yerli & yabancı dizi/film siteleri & video oynatıcıları
+    // Yerli & yabancı dizi/film siteleri
     ".next-episode",
     "button.next-episode",
     "a.next-episode",
@@ -62,11 +62,7 @@ const PLATFORM_SELECTORS = {
     "button[title*='Next' i]",
     "a[aria-label*='Sonraki' i]",
     "button[aria-label*='Sonraki' i]",
-    "[data-action='next-episode']",
-    ".jw-icon-next",
-    ".vjs-next-button",
-    ".fa-step-forward",
-    ".fa-forward"
+    "[data-action='next-episode']"
   ],
   "önceki bölüm": [
     ".prev-episode",
@@ -80,11 +76,7 @@ const PLATFORM_SELECTORS = {
     "a[title*='Previous' i]",
     "button[title*='Previous' i]",
     "a[aria-label*='Önceki' i]",
-    "button[aria-label*='Önceki' i]",
-    ".jw-icon-prev",
-    ".vjs-prev-button",
-    ".fa-step-backward",
-    ".fa-backward"
+    "button[aria-label*='Önceki' i]"
   ],
   "introyu atla": [
     // Netflix
@@ -112,14 +104,33 @@ const PLATFORM_SELECTORS = {
   ]
 };
 
+// Fallback player control icons (only checked if NO webpage link/button exists)
+const PLAYER_FALLBACK_ICONS = {
+  "sonraki bölüm": [
+    ".jw-icon-next",
+    ".vjs-next-button",
+    ".fa-step-forward",
+    ".fa-forward"
+  ],
+  "önceki bölüm": [
+    ".jw-icon-prev",
+    ".vjs-prev-button",
+    ".fa-step-backward",
+    ".fa-backward"
+  ]
+};
+
 const SYNONYM_MAP = {
   "sonraki bölüm": [
     "sonraki bölüm", "sonraki bolum", "sonraki", "next", "next episode", "next video",
-    "sonraki video", "sıradaki bölüm", "siradaki bolum", "sıradaki", "sonraki part", "ileri"
+    "sonraki video", "sıradaki bölüm", "siradaki bolum", "sıradaki", "siradaki", "sonraki part", "ileri",
+    "sonraki bölüme geç", "sonraki bolume gec", "sonraki bolume atla", "sonraki bolumu aç", "sonraki bolumu ac",
+    "sıradaki bölüme geç", "siradaki bolume gec", "sonraki bölüme git", "sonraki bolume git"
   ],
   "önceki bölüm": [
     "önceki bölüm", "önceki bolum", "onceki bölüm", "onceki bolum", "önceki", "onceki",
-    "bir önceki bölüm", "previous episode", "previous", "prev", "geri"
+    "bir önceki bölüm", "bir onceki bolum", "previous episode", "previous", "prev", "geri",
+    "önceki bölüme geç", "onceki bolume gec", "önceki bölüme git", "onceki bolume git"
   ],
   "introyu atla": [
     "introyu atla", "intro atla", "jeneriği atla", "jenerik atla", "skip intro", "atla", "skip"
@@ -145,6 +156,14 @@ function findTargetButton(targetPhrase) {
   const normTarget = normalizeTr(targetPhrase);
   const synonyms = getSearchSynonyms(targetPhrase);
 
+  function isDisabled(el) {
+    if (!el) return true;
+    if (el.disabled || el.getAttribute("disabled") !== null) return true;
+    if (el.getAttribute("aria-disabled") === "true") return true;
+    if (el.classList && (el.classList.contains("disabled") || el.classList.contains("btn-disabled"))) return true;
+    return false;
+  }
+
   // 1. YouTube specific fast path
   if (window.location.hostname.includes("youtube.com")) {
     const isNext = normTarget.includes("sonraki") || normTarget.includes("next") || normTarget.includes("bolum") || normTarget.includes("video");
@@ -154,7 +173,7 @@ function findTargetButton(targetPhrase) {
     if (isNext) {
       // YouTube player next video button
       const ytNext = document.querySelector(".ytp-next-button, a.ytp-next-button");
-      if (ytNext) {
+      if (ytNext && !isDisabled(ytNext)) {
         return { element: ytNext, label: "Sonraki Video", isYouTube: true };
       }
       // If player control not available, first Up Next recommended video in sidebar
@@ -168,7 +187,7 @@ function findTargetButton(targetPhrase) {
 
     if (isPrev) {
       const ytPrev = document.querySelector(".ytp-prev-button, a.ytp-prev-button");
-      if (ytPrev) {
+      if (ytPrev && !isDisabled(ytPrev)) {
         return { element: ytPrev, label: "Önceki Video", isYouTube: true };
       }
     }
@@ -181,7 +200,59 @@ function findTargetButton(targetPhrase) {
     }
   }
 
-  // 2. Check known platform selectors for Netflix, Anime, Series sites
+  const candidates = document.querySelectorAll(
+    "button, a, [role='button'], input[type='button'], input[type='submit'], [onclick], div[class*='btn' i], span[class*='btn' i], [tabindex]"
+  );
+
+  // 2. Exact text match on clickable elements (Highest priority for webpage episode links like 'Sonraki Bölüm')
+  for (const el of candidates) {
+    if (!isElementVisible(el) || isDisabled(el)) continue;
+
+    const texts = [
+      el.innerText || "",
+      el.getAttribute("aria-label") || "",
+      el.getAttribute("title") || "",
+      el.getAttribute("value") || ""
+    ];
+
+    for (const raw of texts) {
+      const norm = normalizeTr(raw);
+      if (!norm) continue;
+
+      for (const syn of synonyms) {
+        if (norm === syn) {
+          const clickable = el.closest("button, a, [role='button']") || el;
+          return { element: clickable, label: raw.trim() || syn, isYouTube: false };
+        }
+      }
+    }
+  }
+
+  // 3. High-priority text-contains match on <a> and <button> (e.g. 'Sonraki Bölüm (2. Bölüm)', 'Sonraki Bölüme Git')
+  // This ALWAYS beats embedded player playlist icons on streaming sites!
+  for (const el of candidates) {
+    if (!isElementVisible(el) || isDisabled(el)) continue;
+
+    const texts = [
+      el.innerText || "",
+      el.getAttribute("aria-label") || "",
+      el.getAttribute("title") || ""
+    ];
+
+    for (const raw of texts) {
+      const norm = normalizeTr(raw);
+      if (!norm) continue;
+
+      for (const syn of synonyms) {
+        if (norm.startsWith(syn) || norm.includes(syn) || syn.includes(norm)) {
+          const clickable = el.closest("button, a, [role='button']") || el;
+          return { element: clickable, label: raw.trim() || targetPhrase, isYouTube: false };
+        }
+      }
+    }
+  }
+
+  // 4. Check known platform selectors for Netflix, Anime, Series sites (e.g. .next-episode, .sonraki-bolum)
   for (const [key, selectors] of Object.entries(PLATFORM_SELECTORS)) {
     const normKey = normalizeTr(key);
     if (normTarget.includes(normKey) || normKey.includes(normTarget)) {
@@ -190,7 +261,7 @@ function findTargetButton(targetPhrase) {
           const els = document.querySelectorAll(sel);
           for (const el of els) {
             const clickable = el.closest("button, a, [role='button']") || el;
-            if (isElementVisible(clickable)) {
+            if (isElementVisible(clickable) && !isDisabled(clickable)) {
               return { element: clickable, label: key, isYouTube: false };
             }
           }
@@ -199,16 +270,30 @@ function findTargetButton(targetPhrase) {
     }
   }
 
-  // 3. Universal DOM search on clickable elements
-  const candidates = document.querySelectorAll(
-    "button, a, [role='button'], input[type='button'], input[type='submit'], [onclick], div[class*='btn' i], span[class*='btn' i], [tabindex]"
-  );
+  // 5. Fallback player icon selectors (JWPlayer, Video.js) - ONLY if no page links found
+  for (const [key, selectors] of Object.entries(PLAYER_FALLBACK_ICONS)) {
+    const normKey = normalizeTr(key);
+    if (normTarget.includes(normKey) || normKey.includes(normTarget)) {
+      for (const sel of selectors) {
+        try {
+          const els = document.querySelectorAll(sel);
+          for (const el of els) {
+            const clickable = el.closest("button, a, [role='button']") || el;
+            if (isElementVisible(clickable) && !isDisabled(clickable)) {
+              return { element: clickable, label: key, isYouTube: false };
+            }
+          }
+        } catch (_) {}
+      }
+    }
+  }
 
+  // 6. Substring / fuzzy text search across any candidate
   let bestMatch = null;
   let bestScore = 0;
 
   for (const el of candidates) {
-    if (!isElementVisible(el)) continue;
+    if (!isElementVisible(el) || isDisabled(el)) continue;
 
     const texts = [
       el.innerText || "",
@@ -223,17 +308,12 @@ function findTargetButton(targetPhrase) {
       if (!norm) continue;
 
       for (const syn of synonyms) {
-        // Exact match
-        if (norm === syn) {
-          return { element: el, label: raw.trim() || syn, isYouTube: false };
-        }
-
-        // Substring / contains match
         if (norm.includes(syn) || syn.includes(norm)) {
           const score = Math.min(norm.length, syn.length) / Math.max(norm.length, syn.length);
           if (score > bestScore) {
             bestScore = score;
-            bestMatch = { element: el, label: raw.trim() || targetPhrase, isYouTube: false };
+            const clickable = el.closest("button, a, [role='button']") || el;
+            bestMatch = { element: clickable, label: raw.trim() || targetPhrase, isYouTube: false };
           }
         }
       }
@@ -575,11 +655,11 @@ chrome.runtime.onMessage.addListener((cmd, sender, sendResponse) => {
     const result = findTargetButton(target);
     if (result && result.element) {
       // Send success response immediately BEFORE navigation destroys context
-      sendResponse({ status: "success", element: result.label });
-      // Execute click on next frame so message has already left the page
+      sendResponse({ status: "success", element: result.label || target });
+      // Execute click with 60ms delay so message has already safely left the page and reached background.js
       setTimeout(() => {
         executeElementClick(result.element, result.label, result.isYouTube);
-      }, 15);
+      }, 60);
     } else {
       sendResponse({
         status: "not_found",

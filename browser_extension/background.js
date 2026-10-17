@@ -351,6 +351,8 @@ async function handleCommand(cmd) {
       };
     }
 
+    const prevUrl = activeTab.url;
+
     // Fast-path for play_video: always execute universal multi-frame runner FIRST
     if (cmd.action === "play_video") {
       const videoResult = await executeUniversalVideoPlay(activeTab.id);
@@ -390,13 +392,23 @@ async function handleCommand(cmd) {
         ...(tabResponse || { status: "success", element: cmd.target || "Video Oynatıcı" })
       };
     } catch (sendErr) {
-      if (sendErr && sendErr.message && (sendErr.message.includes("closed before a response") || sendErr.message.includes("navigating"))) {
+      const errMsg = (sendErr && sendErr.message) ? sendErr.message.toLowerCase() : "";
+      console.log("[Haydar Background] sendMessage catch:", errMsg);
+
+      // Inspect if navigation occurred or context was severed
+      const currentTab = await chrome.tabs.get(activeTab.id).catch(() => null);
+      const isNavigating = !currentTab || currentTab.status === "loading" || currentTab.url !== prevUrl;
+
+      // For button clicks: if page navigated or port closed, the click succeeded!
+      if (cmd.action === "click_button" && (isNavigating || errMsg.includes("closed before") || errMsg.includes("navigating"))) {
+        console.log("[Haydar Background] Click caused page navigation. Treating as success.");
         return {
           id: msgId,
           status: "success",
-          element: cmd.target || "Video Oynatıcı"
+          element: cmd.target || "Sonraki Bölüm"
         };
       }
+
       console.log("[Haydar Background] Content script not detected in tab, injecting dynamically across frames...");
       await chrome.scripting.executeScript({
         target: { tabId: activeTab.id, allFrames: true },
@@ -408,7 +420,7 @@ async function handleCommand(cmd) {
       }).catch(() => {});
 
       // Small delay for DOM content listener registration
-      await new Promise(r => setTimeout(r, 90));
+      await new Promise(r => setTimeout(r, 100));
 
       if (cmd.action === "play_video") {
         const retryVideo = await executeUniversalVideoPlay(activeTab.id);
@@ -417,11 +429,23 @@ async function handleCommand(cmd) {
         }
       }
 
-      const retryResponse = await chrome.tabs.sendMessage(activeTab.id, cmd);
-      return {
-        id: msgId,
-        ...(retryResponse || { status: "success" })
-      };
+      try {
+        const retryResponse = await chrome.tabs.sendMessage(activeTab.id, cmd);
+        return {
+          id: msgId,
+          ...(retryResponse || { status: "success", element: cmd.target || "Sonraki Bölüm" })
+        };
+      } catch (retryErr) {
+        const retryMsg = (retryErr && retryErr.message) ? retryErr.message.toLowerCase() : "";
+        if (cmd.action === "click_button" && (retryMsg.includes("closed before") || retryMsg.includes("navigating") || retryMsg.includes("receiving end"))) {
+          return {
+            id: msgId,
+            status: "success",
+            element: cmd.target || "Sonraki Bölüm"
+          };
+        }
+        throw retryErr;
+      }
     }
   } catch (err) {
     console.error("[Haydar Background] handleCommand failure:", err);

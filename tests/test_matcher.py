@@ -247,6 +247,27 @@ def test_browser_commands(actual_config):
     assert res6.matched is True
     assert res6.command["id"] == "browser_scroll_up"
 
+    # Episode navigation & click variants
+    res_ep1 = matcher.find_match("tıkla sonraki bölüm")
+    assert res_ep1.matched is True
+    assert res_ep1.command["id"] == "browser_next_episode"
+
+    res_ep2 = matcher.find_match("haydar tıkla sonraki bölüm")
+    assert res_ep2.matched is True
+    assert res_ep2.command["id"] == "browser_next_episode"
+
+    res_ep3 = matcher.find_match("tıkla önceki bölüm")
+    assert res_ep3.matched is True
+    assert res_ep3.command["id"] == "browser_prev_episode"
+
+    res_ep4 = matcher.find_match("sonraki bölüm")
+    assert res_ep4.matched is True
+    assert res_ep4.command["id"] == "browser_next_episode"
+
+    res_ep5 = matcher.find_match("önceki bölüm")
+    assert res_ep5.matched is True
+    assert res_ep5.command["id"] == "browser_prev_episode"
+
     # Universal video player detection & playback
     res7 = matcher.find_match("haydar videoyu aç")
     assert res7.matched is True

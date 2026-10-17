@@ -126,14 +126,15 @@ class VoiceWorkerThread(QThread):
                 click_target = extract_browser_click_target(raw_text)
                 if click_target:
                     resp = self.executor.browser_click_custom(click_target)
-                    if resp.get("status") == "success":
+                    status = resp.get("status")
+                    if status in ("success", "timeout"):
                         elem_text = resp.get("element", click_target)
                         self.signals.sig_executed.emit(
                             f"'{elem_text}' tıklandı",
                             ["Web Extension"],
                             100.0,
                         )
-                    elif resp.get("status") == "no_extension":
+                    elif status == "no_extension":
                         self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
                     else:
                         self.signals.sig_unmatched.emit(f"'{click_target}' bulunamadı", 0.0)
@@ -214,6 +215,8 @@ class VoiceWorkerThread(QThread):
             norm_raw = normalize_turkish(raw_text)
             direct_video_prefixes = (
                 "sonraki bölüm", "sonraki bolum", "önceki bölüm", "onceki bolum",
+                "tıkla sonraki bölüm", "tıkla sonraki bolum", "tıkla sıradaki bölüm", "tıkla sonraki",
+                "tıkla önceki bölüm", "tıkla onceki bolum", "tıkla önceki",
                 "introyu atla", "reklamı geç", "reklamı atla",
                 "videoyu aç", "videoyu ac", "video aç", "video ac",
                 "videoyu başlat", "videoyu baslat", "video başlat", "video baslat",
@@ -271,20 +274,21 @@ class VoiceWorkerThread(QThread):
                         )
                     continue
 
-            # Direct single-shot browser click: e.g. "haydar tıkla abone ol", "haydar sepete ekle butonuna bas"
+            # Direct single-shot browser click: e.g. "haydar tıkla abone ol", "haydar sepete ekle butonuna bas", "tıkla abone ol"
             if wake_detected or not self.matcher.wake_word_enabled:
-                click_target = extract_browser_click_target(processed_text)
+                click_target = extract_browser_click_target(processed_text) or extract_browser_click_target(raw_text)
                 if click_target:
                     self.signals.sig_transcribed.emit(raw_text)
                     resp = self.executor.browser_click_custom(click_target)
-                    if resp.get("status") == "success":
+                    status = resp.get("status")
+                    if status in ("success", "timeout"):
                         elem_text = resp.get("element", click_target)
                         self.signals.sig_executed.emit(
                             f"'{elem_text}' tıklandı",
                             ["Web Extension"],
                             100.0,
                         )
-                    elif resp.get("status") == "no_extension":
+                    elif status == "no_extension":
                         self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
                     else:
                         self.signals.sig_unmatched.emit(f"'{click_target}' bulunamadı", 0.0)

@@ -545,7 +545,11 @@
         "sonraki bölümü aç",
         "sonraki bolumu aç",
         "sonraki",
-        "sıradaki"
+        "sıradaki",
+        "tıkla sonraki bölüm",
+        "tıkla sonraki bolum",
+        "tıkla sıradaki bölüm",
+        "tıkla sonraki"
       ],
       "action_type": "browser",
       "browser_action": "click_button",
@@ -567,7 +571,10 @@
         "önceki part",
         "önceki video",
         "önceki",
-        "onceki"
+        "onceki",
+        "tıkla önceki bölüm",
+        "tıkla onceki bolum",
+        "tıkla önceki"
       ],
       "action_type": "browser",
       "browser_action": "click_button",
