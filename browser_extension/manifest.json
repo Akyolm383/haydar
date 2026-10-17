@@ -8,7 +8,8 @@
     "scripting",
     "tabs",
     "alarms",
-    "offscreen"
+    "offscreen",
+    "webNavigation"
   ],
   "host_permissions": [
     "<all_urls>",

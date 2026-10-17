@@ -57,8 +57,22 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 });
 
-// Message listener from offscreen.js or popup.html
+// Track frames where content script has reported in
+const knownTabFrames = new Map();
+
+// Message listener from offscreen.js, content.js or popup.html
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === "register_frame" && sender && sender.tab) {
+    const tabId = sender.tab.id;
+    if (!knownTabFrames.has(tabId)) {
+      knownTabFrames.set(tabId, new Set());
+    }
+    if (sender.frameId !== undefined) {
+      knownTabFrames.get(tabId).add(sender.frameId);
+    }
+    sendResponse({ ok: true });
+    return true;
+  }
   if (msg.type === "execute_command") {
     handleCommand(msg.command).then(sendResponse);
     return true; // Keep message channel open for async response
@@ -71,188 +85,212 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-// Executes multi-frame penetrating video search and playback across all frames (including cross-origin streaming iframes)
-async function executeUniversalVideoPlay(tabId) {
+// Clean up frame tracking when tabs are closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+  knownTabFrames.delete(tabId);
+});
+
+// Resolves the currently focused or most relevant web tab
+async function getActiveWebTab() {
   try {
-    const frameResults = await chrome.scripting.executeScript({
-      target: { tabId: tabId, allFrames: true },
-      func: () => {
-        function simulateClick(el) {
-          if (!el) return;
-          try {
-            el.scrollIntoView({ behavior: "smooth", block: "center" });
-            el.focus();
-          } catch (_) {}
-          const rect = el.getBoundingClientRect();
-          const clientX = rect.left + rect.width / 2;
-          const clientY = rect.top + rect.height / 2;
-          const opts = { bubbles: true, cancelable: true, view: window, clientX, clientY };
-          try { el.dispatchEvent(new PointerEvent("pointerdown", opts)); } catch (_) {}
-          el.dispatchEvent(new MouseEvent("mousedown", opts));
-          try { el.dispatchEvent(new PointerEvent("pointerup", opts)); } catch (_) {}
-          el.dispatchEvent(new MouseEvent("mouseup", opts));
-          el.click();
-        }
+    const focusedTabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    let activeTab = focusedTabs && focusedTabs.length > 0 ? focusedTabs[0] : null;
 
-        function isVisible(el) {
-          if (!el) return false;
-          const style = window.getComputedStyle(el);
-          if (style.display === "none" || style.visibility === "hidden") return false;
-          const rect = el.getBoundingClientRect();
-          return (rect.width > 0 && rect.height > 0) || el.offsetWidth > 0 || el.offsetHeight > 0;
-        }
-
-        // 1. Bypass transparent/invisible ad overlays covering video players on streaming sites
-        const overlays = document.querySelectorAll(
-          "#overlay, .overlay, #player_overlay, .player-overlay, #playoverlay, .click-layer, .jw-preview, .jw-overlay, [class*='backdrop' i], [id*='pop' i]"
-        );
-        for (const ov of overlays) {
-          if (isVisible(ov)) {
-            const r = ov.getBoundingClientRect();
-            if (r.width > 120 && r.height > 80) {
-              simulateClick(ov);
-            }
-          }
-        }
-
-        // 2. Direct HTML5 <video> elements
-        const videos = Array.from(document.querySelectorAll("video"));
-        if (videos.length > 0) {
-          videos.sort((a, b) => {
-            const rA = a.getBoundingClientRect();
-            const rB = b.getBoundingClientRect();
-            return (rB.width * rB.height) - (rA.width * rA.height);
-          });
-
-          for (const v of videos) {
-            const rect = v.getBoundingClientRect();
-            if (rect.width > 30 && rect.height > 30) {
-              try {
-                v.scrollIntoView({ behavior: "smooth", block: "center" });
-                v.focus();
-              } catch (_) {}
-
-              // Try play directly
-              try {
-                const promise = v.play();
-                if (promise !== undefined) {
-                  promise.catch(() => {
-                    simulateClick(v);
-                    v.play().catch(() => {});
-                  });
-                }
-              } catch (_) {}
-
-              simulateClick(v);
-              return { found: true, priority: 1, element: "Video Oynatıcı" };
-            }
-          }
-        }
-
-        // 3. Player buttons & big play controls (JWPlayer, Video.js, Doodstream, Streamtape, Vidmoly, Plyr, etc.)
-        const playerSelectors = [
-          // Video.js
-          ".vjs-big-play-button",
-          ".vjs-play-control",
-          ".vjs-poster",
-          // JW Player
-          ".jw-display-icon-container",
-          ".jw-display-icon-display",
-          ".jw-overlay",
-          ".jw-preview",
-          ".jw-icon-playback",
-          ".jw-icon-play",
-          // Plyr & others
-          ".plyr__control--overlaid",
-          "button[data-plyr='play']",
-          // Doodstream / Streamtape / Vidmoly / Filelions / Voe
-          "#play_btn",
-          "#btn-play",
-          ".playbtn",
-          ".play-btn",
-          ".play_btn",
-          ".btn-play",
-          ".play-icon",
-          "#player_overlay",
-          ".player-overlay",
-          ".play-overlay",
-          "#videolink",
-          "#cclink",
-          "[id*='play_btn' i]",
-          "[id*='play-btn' i]",
-          "[class*='big-play' i]",
-          "[class*='bigplay' i]",
-          "[class*='play-button' i]",
-          "[class*='playButton' i]",
-          "[class*='play-btn' i]",
-          // YouTube
-          "button.ytp-large-play-button",
-          "button.ytp-play-button",
-          ".ytp-cued-thumbnail-overlay-image",
-          // Generic accessible play controls
-          "button[aria-label*='play' i]",
-          "button[aria-label*='oynat' i]",
-          "button[aria-label*='başlat' i]",
-          "button[title*='play' i]",
-          "button[title*='oynat' i]",
-          "button[title*='başlat' i]",
-          "[data-action*='play' i]",
-          "[data-testid*='play' i]"
-        ];
-
-        for (const sel of playerSelectors) {
-          try {
-            const els = document.querySelectorAll(sel);
-            for (const el of els) {
-              if (isVisible(el)) {
-                const clickable = el.closest("button, a, [role='button'], div") || el;
-                simulateClick(clickable);
-                return { found: true, priority: 2, element: "Video Oynatıcı" };
-              }
-            }
-          } catch (_) {}
-        }
-
-        // 4. Text-based play candidates inside player or buttons
-        const candidates = document.querySelectorAll(
-          "[id*='player' i] *, [class*='player' i] *, [id*='video' i] *, [class*='video' i] *, button, a, [role='button']"
-        );
-        const playTerms = [
-          "filmi baslat", "filmi başlat", "videoyu baslat", "videoyu başlat",
-          "videoyu oynat", "filmi oynat", "oynat", "baslat", "başlat",
-          "play video", "play movie", "play", "watch now", "click to play", "tikla izle", "tıkla izle"
-        ];
-        for (const el of candidates) {
-          if (!isVisible(el)) continue;
-          const txt = (el.innerText || el.getAttribute("aria-label") || el.getAttribute("title") || "").toLowerCase().trim();
-          if (txt && playTerms.includes(txt)) {
-            const clickable = el.closest("button, a, [role='button'], div") || el;
-            simulateClick(clickable);
-            return { found: true, priority: 3, element: el.innerText.trim() || "Video Başlat" };
-          }
-        }
-
-        return { found: false };
-      }
-    });
-
-    if (frameResults && frameResults.length > 0) {
-      const successFrames = frameResults
-        .filter(r => r.result && r.result.found)
-        .sort((a, b) => (a.result.priority || 99) - (b.result.priority || 99));
-
-      if (successFrames.length > 0) {
-        return { status: "success", element: successFrames[0].result.element || "Video Oynatıcı" };
+    if (!activeTab || !activeTab.url || activeTab.url.startsWith("chrome://") || activeTab.url.startsWith("edge://")) {
+      const httpTabs = await chrome.tabs.query({ active: true, url: ["http://*/*", "https://*/*"] });
+      if (httpTabs && httpTabs.length > 0) {
+        activeTab = httpTabs.find(t => t.audible) || httpTabs[0];
       }
     }
+
+    if (!activeTab) {
+      const anyTabs = await chrome.tabs.query({ active: true });
+      activeTab = anyTabs && anyTabs.length > 0 ? anyTabs[0] : null;
+    }
+
+    return activeTab;
   } catch (err) {
-    console.warn("[Haydar Background] executeUniversalVideoPlay isolated world warning:", err);
+    console.warn("[Haydar Background] getActiveWebTab error:", err);
+    return null;
+  }
+}
+
+// Executes multi-frame penetrating video search and playback across all frames (including cross-origin streaming iframes)
+async function executeUniversalVideoPlay(tabId) {
+  // 1. Gather all frame IDs for this tab
+  const frameIdSet = new Set([0]); // Always include top frame
+
+  // Try webNavigation to get full frame hierarchy
+  try {
+    if (chrome.webNavigation && chrome.webNavigation.getAllFrames) {
+      const navFrames = await chrome.webNavigation.getAllFrames({ tabId });
+      if (navFrames && navFrames.length > 0) {
+        navFrames.forEach(f => frameIdSet.add(f.frameId));
+      }
+    }
+  } catch (_) {}
+
+  // Include frames that registered via content script
+  if (knownTabFrames.has(tabId)) {
+    knownTabFrames.get(tabId).forEach(fId => frameIdSet.add(fId));
   }
 
-  // Fallback: Invoke player APIs in main world across all frames
+  const frameIds = Array.from(frameIdSet);
+  console.log("[Haydar Background] Scanning frames for video:", frameIds);
+
+  // 2. Phase 1: Dispatch 'play_video' message to each frame independently
+  // Content script running in that frame handles native DOM interaction
+  for (const fId of frameIds) {
+    try {
+      const res = await chrome.tabs.sendMessage(tabId, { action: "play_video" }, { frameId: fId });
+      if (res && res.status === "success") {
+        console.log("[Haydar Background] Video playback triggered via content script in frameId:", fId);
+        return { status: "success", element: res.element || "Video Oynatıcı" };
+      }
+    } catch (_) {}
+  }
+
+  // 3. Phase 2: Inject and execute targeted native player script per frame
+  // Wrapped in isolated per-frame try/catch so one sandboxed ad iframe cannot abort others
+  for (const fId of frameIds) {
+    try {
+      const execResults = await chrome.scripting.executeScript({
+        target: { tabId: tabId, frameIds: [fId] },
+        func: () => {
+          function simulateClick(el) {
+            if (!el) return;
+            try {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+              el.focus();
+            } catch (_) {}
+            const rect = el.getBoundingClientRect();
+            const clientX = rect.left + rect.width / 2;
+            const clientY = rect.top + rect.height / 2;
+            const opts = { bubbles: true, cancelable: true, view: window, clientX, clientY };
+            try { el.dispatchEvent(new PointerEvent("pointerdown", opts)); } catch (_) {}
+            el.dispatchEvent(new MouseEvent("mousedown", opts));
+            try { el.dispatchEvent(new PointerEvent("pointerup", opts)); } catch (_) {}
+            el.dispatchEvent(new MouseEvent("mouseup", opts));
+            el.click();
+          }
+
+          function isVisible(el) {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === "none" || style.visibility === "hidden") return false;
+            const rect = el.getBoundingClientRect();
+            return (rect.width > 0 && rect.height > 0) || el.offsetWidth > 0 || el.offsetHeight > 0;
+          }
+
+          // A. Bypass transparent/invisible ad overlays covering video players
+          const overlays = document.querySelectorAll(
+            "#overlay, .overlay, #player_overlay, .player-overlay, #playoverlay, .click-layer, .jw-preview, .jw-overlay, [class*='backdrop' i], [id*='pop' i]"
+          );
+          for (const ov of overlays) {
+            if (isVisible(ov)) {
+              const r = ov.getBoundingClientRect();
+              if (r.width > 120 && r.height > 80) {
+                simulateClick(ov);
+              }
+            }
+          }
+
+          // B. Direct HTML5 <video> elements
+          const videos = Array.from(document.querySelectorAll("video"));
+          if (videos.length > 0) {
+            videos.sort((a, b) => {
+              const rA = a.getBoundingClientRect();
+              const rB = b.getBoundingClientRect();
+              return (rB.width * rB.height) - (rA.width * rA.height);
+            });
+
+            for (const v of videos) {
+              const rect = v.getBoundingClientRect();
+              if (rect.width > 30 && rect.height > 30) {
+                try {
+                  v.scrollIntoView({ behavior: "smooth", block: "center" });
+                  v.focus();
+                } catch (_) {}
+
+                try {
+                  const promise = v.play();
+                  if (promise !== undefined) {
+                    promise.catch(() => {
+                      simulateClick(v);
+                      v.play().catch(() => {});
+                    });
+                  }
+                } catch (_) {}
+
+                simulateClick(v);
+                return { found: true, priority: 1, element: "Video Oynatıcı" };
+              }
+            }
+          }
+
+          // C. Player buttons & big play controls (JWPlayer, Video.js, Doodstream, Streamtape, Vidmoly, Plyr, etc.)
+          const playerSelectors = [
+            ".vjs-big-play-button", ".vjs-play-control", ".vjs-poster",
+            ".jw-display-icon-container", ".jw-display-icon-display", ".jw-overlay", ".jw-preview", ".jw-icon-playback", ".jw-icon-play",
+            ".plyr__control--overlaid", "button[data-plyr='play']",
+            "#play_btn", "#btn-play", ".playbtn", ".play-btn", ".play_btn", ".btn-play", ".play-icon",
+            "#player_overlay", ".player-overlay", ".play-overlay", "#videolink", "#cclink",
+            "[id*='play_btn' i]", "[id*='play-btn' i]", "[class*='big-play' i]", "[class*='bigplay' i]",
+            "[class*='play-button' i]", "[class*='playButton' i]", "[class*='play-btn' i]",
+            "button.ytp-large-play-button", "button.ytp-play-button", ".ytp-cued-thumbnail-overlay-image",
+            "button[aria-label*='play' i]", "button[aria-label*='oynat' i]", "button[aria-label*='başlat' i]",
+            "button[title*='play' i]", "button[title*='oynat' i]", "button[title*='başlat' i]",
+            "[data-action*='play' i]", "[data-testid*='play' i]"
+          ];
+
+          for (const sel of playerSelectors) {
+            try {
+              const els = document.querySelectorAll(sel);
+              for (const el of els) {
+                if (isVisible(el)) {
+                  const clickable = el.closest("button, a, [role='button'], div") || el;
+                  simulateClick(clickable);
+                  return { found: true, priority: 2, element: "Video Oynatıcı" };
+                }
+              }
+            } catch (_) {}
+          }
+
+          // D. Text-based play candidates inside player or buttons
+          const candidates = document.querySelectorAll(
+            "[id*='player' i] *, [class*='player' i] *, [id*='video' i] *, [class*='video' i] *, button, a, [role='button']"
+          );
+          const playTerms = [
+            "filmi baslat", "filmi başlat", "videoyu baslat", "videoyu başlat",
+            "videoyu oynat", "filmi oynat", "oynat", "baslat", "başlat",
+            "filmi izle", "diziyi izle", "hemen izle", "izle", "video izle", "videoyu izle",
+            "play video", "play movie", "play", "watch now", "click to play", "tikla izle", "tıkla izle"
+          ];
+          for (const el of candidates) {
+            if (!isVisible(el)) continue;
+            const txt = (el.innerText || el.getAttribute("aria-label") || el.getAttribute("title") || "").toLowerCase().trim();
+            if (txt && playTerms.includes(txt)) {
+              const clickable = el.closest("button, a, [role='button'], div") || el;
+              simulateClick(clickable);
+              return { found: true, priority: 3, element: el.innerText.trim() || "Video Başlat" };
+            }
+          }
+
+          return { found: false };
+        }
+      });
+
+      if (execResults && execResults[0] && execResults[0].result && execResults[0].result.found) {
+        console.log("[Haydar Background] Video activated via per-frame executeScript in frameId:", fId);
+        return { status: "success", element: execResults[0].result.element || "Video Oynatıcı" };
+      }
+    } catch (_) {}
+  }
+
+  // 4. Phase 3: Invoke player APIs in main world
   try {
     const mainResults = await chrome.scripting.executeScript({
-      target: { tabId: tabId, allFrames: true },
+      target: { tabId: tabId, frameIds: [0] },
       world: "MAIN",
       func: () => {
         let played = false;
@@ -297,13 +335,7 @@ async function executeUniversalVideoPlay(tabId) {
 async function handleCommand(cmd) {
   const msgId = cmd.id;
   try {
-    const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    let activeTab = tabs && tabs.length > 0 ? tabs[0] : null;
-
-    if (!activeTab) {
-      const anyTabs = await chrome.tabs.query({ active: true });
-      activeTab = anyTabs && anyTabs.length > 0 ? anyTabs[0] : null;
-    }
+    const activeTab = await getActiveWebTab();
 
     if (!activeTab || !activeTab.id) {
       return {
@@ -313,7 +345,7 @@ async function handleCommand(cmd) {
       };
     }
 
-    // Fast-path for play_video: always execute universal frame-penetrating runner FIRST
+    // Fast-path for play_video: always execute universal multi-frame runner FIRST
     if (cmd.action === "play_video") {
       const videoResult = await executeUniversalVideoPlay(activeTab.id);
       if (videoResult && videoResult.status === "success") {
@@ -325,7 +357,7 @@ async function handleCommand(cmd) {
       }
     }
 
-    // Try sending command to content script
+    // Try sending command to top frame content script
     try {
       const tabResponse = await chrome.tabs.sendMessage(activeTab.id, cmd);
 
@@ -349,19 +381,18 @@ async function handleCommand(cmd) {
           element: cmd.target || "Video Oynatıcı"
         };
       }
-      console.log("[Haydar Background] Content script not detected in tab, injecting dynamically...");
-      // Tab was opened before extension installation; inject dynamically across all frames
+      console.log("[Haydar Background] Content script not detected in tab, injecting dynamically across frames...");
       await chrome.scripting.executeScript({
         target: { tabId: activeTab.id, allFrames: true },
         files: ["content.js"]
-      });
+      }).catch(() => {});
       await chrome.scripting.insertCSS({
         target: { tabId: activeTab.id, allFrames: true },
         files: ["styles.css"]
-      });
+      }).catch(() => {});
 
       // Small delay for DOM content listener registration
-      await new Promise(r => setTimeout(r, 80));
+      await new Promise(r => setTimeout(r, 90));
 
       if (cmd.action === "play_video") {
         const retryVideo = await executeUniversalVideoPlay(activeTab.id);

@@ -3,6 +3,16 @@
  * Injected into web pages (and iframes) to locate elements, click buttons, and handle scrolling.
  */
 
+// Notify background worker of frame existence for multi-frame dispatch
+try {
+  chrome.runtime.sendMessage({
+    type: "register_frame",
+    isTop: window === window.top,
+    url: window.location.href,
+    hasVideo: !!document.querySelector("video, [class*='player' i], [id*='player' i], [class*='play' i], iframe")
+  }).catch(() => {});
+} catch (_) {}
+
 // Turkish-aware text normalization
 function normalizeTr(text) {
   if (!text) return "";
@@ -416,6 +426,7 @@ function findAndPlayVideo() {
   const playTerms = [
     "filmi baslat", "filmi başlat", "videoyu baslat", "videoyu başlat",
     "videoyu oynat", "filmi oynat", "oynat", "baslat", "başlat",
+    "filmi izle", "diziyi izle", "hemen izle", "izle", "video izle", "videoyu izle",
     "play video", "play movie", "play", "watch now", "click to play", "tikla izle", "tıkla izle"
   ];
 
@@ -469,9 +480,9 @@ function findAndPlayVideo() {
         }
       } catch (_) {}
 
-      // Cross-origin iframes cannot be penetrated via parent DOM click events.
-      // We focus/scroll the iframe, and let background.js execute directly inside the child frame.
-      continue;
+      // Scroll, focus, and click iframe container in parent frame
+      simulateUserClick(iframe);
+      return { status: "success", element: "Video Oynatıcı" };
     }
   }
 

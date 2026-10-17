@@ -190,7 +190,9 @@ class VoiceWorkerThread(QThread):
                         elif status == "no_extension":
                             self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
                         else:
-                            self.signals.sig_unmatched.emit(f"'{cmd.get('target', 'Buton')}' bulunamadı", 0.0)
+                            fallback_name = "Video Oynatıcı" if cmd.get("browser_action") == "play_video" else "Buton"
+                            target_name = cmd.get("target") or fallback_name
+                            self.signals.sig_unmatched.emit(f"'{target_name}' bulunamadı", 0.0)
                         continue
 
                     executed = self.executor.execute(cmd)
