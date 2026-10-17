@@ -1,62 +1,77 @@
 /**
  * Haydar Web Bridge - Background Service Worker
- * Maintains WebSocket connection with Haydar desktop server and routes DOM commands.
+ * Manages offscreen document lifecycle, dynamic content script injection, and active tab routing.
  */
 
-const WS_URL = "ws://127.0.0.1:8765";
-let socket = null;
-let reconnectTimer = null;
+let isOffscreenCreating = false;
 
-function connect() {
-  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-    return;
+async function ensureOffscreenDocument() {
+  if (isOffscreenCreating) return;
+  try {
+    const existing = await chrome.offscreen.hasDocument();
+    if (existing) return;
+
+    isOffscreenCreating = true;
+    await chrome.offscreen.createDocument({
+      url: "offscreen.html",
+      reasons: ["MATCH_MEDIA"],
+      justification: "Maintain persistent WebSocket connection with Haydar desktop assistant"
+    });
+    console.log("[Haydar Background] Offscreen keepalive document created successfully");
+  } catch (err) {
+    console.warn("[Haydar Background] Offscreen creation notice:", err);
+  } finally {
+    isOffscreenCreating = false;
   }
-
-  console.log("[Haydar Extension] Connecting to Haydar Web Bridge at", WS_URL);
-  socket = new WebSocket(WS_URL);
-
-  socket.onopen = () => {
-    console.log("[Haydar Extension] Connected to Haydar desktop successfully!");
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-    }
-  };
-
-  socket.onmessage = async (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      console.log("[Haydar Extension] Received command:", data);
-
-      const response = await handleCommand(data);
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify(response));
-      }
-    } catch (err) {
-      console.error("[Haydar Extension] Error handling message:", err);
-    }
-  };
-
-  socket.onclose = () => {
-    console.warn("[Haydar Extension] Disconnected from Haydar. Retrying in 3 seconds...");
-    scheduleReconnect();
-  };
-
-  socket.onerror = (err) => {
-    console.warn("[Haydar Extension] WebSocket error:", err);
-    socket.close();
-  };
 }
 
-function scheduleReconnect() {
-  if (reconnectTimer) return;
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    connect();
-  }, 3000);
-}
+// Ensure offscreen document on service worker start
+ensureOffscreenDocument();
 
-// Routes commands to the active tab's content script
+// Use alarm to periodically verify offscreen document health
+chrome.alarms.create("offscreen_check", { periodInMinutes: 0.5 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "offscreen_check") {
+    ensureOffscreenDocument();
+  }
+});
+
+// Auto-inject content script into open tabs on extension install / update
+chrome.runtime.onInstalled.addListener(async () => {
+  ensureOffscreenDocument();
+  try {
+    const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
+    for (const tab of tabs) {
+      if (!tab.id || tab.url.startsWith("chrome://") || tab.url.startsWith("edge://")) continue;
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["content.js"]
+      }).catch(() => {});
+      chrome.scripting.insertCSS({
+        target: { tabId: tab.id },
+        files: ["styles.css"]
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.debug("[Haydar Background] Batch injection notice:", err);
+  }
+});
+
+// Message listener from offscreen.js or popup.html
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === "execute_command") {
+    handleCommand(msg.command).then(sendResponse);
+    return true; // Keep message channel open for async response
+  }
+  if (msg.type === "check_status") {
+    chrome.runtime.sendMessage({ type: "get_status" }, (res) => {
+      sendResponse(res || { connected: false });
+    });
+    return true;
+  }
+});
+
+// Dispatches command to the active tab's content script with automatic injection fallback
 async function handleCommand(cmd) {
   const msgId = cmd.id;
   try {
@@ -76,28 +91,40 @@ async function handleCommand(cmd) {
       };
     }
 
-    // Forward command to content script
-    const tabResponse = await chrome.tabs.sendMessage(activeTab.id, cmd);
-    return {
-      id: msgId,
-      ...(tabResponse || { status: "success" })
-    };
+    // Try sending command to content script
+    try {
+      const tabResponse = await chrome.tabs.sendMessage(activeTab.id, cmd);
+      return {
+        id: msgId,
+        ...(tabResponse || { status: "success" })
+      };
+    } catch (sendErr) {
+      console.log("[Haydar Background] Content script not detected in tab, injecting dynamically...");
+      // Tab was opened before extension installation; inject dynamically
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        files: ["content.js"]
+      });
+      await chrome.scripting.insertCSS({
+        target: { tabId: activeTab.id },
+        files: ["styles.css"]
+      });
+
+      // Small delay for DOM content listener registration
+      await new Promise(r => setTimeout(r, 80));
+
+      const retryResponse = await chrome.tabs.sendMessage(activeTab.id, cmd);
+      return {
+        id: msgId,
+        ...(retryResponse || { status: "success" })
+      };
+    }
   } catch (err) {
-    console.warn("[Haydar Extension] Failed to communicate with content script:", err);
+    console.error("[Haydar Background] handleCommand failure:", err);
     return {
       id: msgId,
       status: "error",
-      message: "Sekme içeriğine erişilemedi veya sayfa henüz yüklenmedi"
+      message: "Sekme içeriğiyle bağlantı kurulamadı veya sayfa yükleniyor"
     };
   }
 }
-
-// Start connection on service worker activation
-connect();
-
-// Periodically keepalive check
-setInterval(() => {
-  if (!socket || socket.readyState === WebSocket.CLOSED) {
-    connect();
-  }
-}, 5000);

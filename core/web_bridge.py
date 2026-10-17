@@ -70,6 +70,11 @@ class WebBridgeServer:
             async for raw_msg in websocket:
                 try:
                     data = json.loads(raw_msg)
+                    if data.get("type") == "ping":
+                        await websocket.send(json.dumps({"type": "pong"}))
+                        continue
+                    if data.get("type") in ("pong", "ws_status", "heartbeat"):
+                        continue
                     msg_id = data.get("id")
                     if msg_id and msg_id in self.pending_responses:
                         future = self.pending_responses.pop(msg_id)

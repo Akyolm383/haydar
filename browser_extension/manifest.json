@@ -1,16 +1,32 @@
 {
   "manifest_version": 3,
   "name": "Haydar Web Bridge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Haydar Türkçe Sesli Asistanı için akıllı tarayıcı ve web otomasyon eklentisi",
   "permissions": [
     "activeTab",
     "scripting",
-    "tabs"
+    "tabs",
+    "alarms",
+    "offscreen"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' ws://127.0.0.1:8765 ws://localhost:8765 http://127.0.0.1:8765 http://localhost:8765;"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Haydar Web Bridge Durumu",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
   "background": {
     "service_worker": "background.js"
   },
