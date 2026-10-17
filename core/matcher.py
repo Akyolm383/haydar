@@ -188,6 +188,32 @@ class CommandMatcher:
         if not words:
             return "", False
 
+        # Explicit Haydar exit phrases should be preserved as-is so exit_haydar matches
+        exit_phrases = (
+            "haydarı kapat",
+            "haydari kapat",
+            "asistanı kapat",
+            "asistani kapat",
+            "asistan kapat",
+            "kendini kapat",
+            "haydardan çık",
+            "haydardan cik",
+            "haydar çıkış",
+            "haydar cikis",
+            "uygulamadan çık",
+            "uygulamadan cik",
+            "haydarı sonlandır",
+            "haydari sonlandir",
+            "asistanı sonlandır",
+            "asistani sonlandir",
+            "kapat haydarı",
+            "kapat haydari",
+            "kapat asistanı",
+            "kapat asistani",
+        )
+        if normalized in exit_phrases:
+            return normalized, True
+
         # Whitelisted direct multimedia commands that work with or without saying 'haydar'
         direct_prefixes = (
             "sonraki bölüm",
@@ -238,6 +264,14 @@ class CommandMatcher:
             "oynatici ac",
             "tıkla",
             "tikla",
+            "kapat",
+            "bunu kapat",
+            "şunu kapat",
+            "sunu kapat",
+            "açılanı kapat",
+            "acilani kapat",
+            "escape",
+            "esc",
         )
         if any(normalized.startswith(p) for p in direct_prefixes):
             return normalized, True

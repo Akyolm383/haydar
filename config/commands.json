@@ -730,20 +730,51 @@
       "threshold": 70
     },
     {
+      "id": "press_escape",
+      "description": "Kapat (Escape)",
+      "triggers": [
+        "kapat",
+        "bunu kapat",
+        "açılanı kapat",
+        "acilani kapat",
+        "pencereciği kapat",
+        "pencerecigi kapat",
+        "escape",
+        "esc",
+        "escape bas",
+        "esc bas",
+        "kapat şunu",
+        "kapat sunu",
+        "şunu kapat",
+        "sunu kapat",
+        "menüyü kapat",
+        "menuyu kapat",
+        "paneli kapat"
+      ],
+      "action_type": "press",
+      "keys": ["escape"],
+      "threshold": 70
+    },
+    {
       "id": "exit_haydar",
       "description": "Haydar uygulamasını kapatır",
       "triggers": [
-        "kapat",
         "haydarı kapat",
+        "haydari kapat",
         "asistanı kapat",
+        "asistani kapat",
         "haydardan çık",
+        "haydardan cik",
         "haydar çıkış",
-        "haydar kapat",
+        "haydar cikis",
         "asistan kapat",
         "kendini kapat",
         "uygulamadan çık",
+        "uygulamadan cik",
         "asistanı sonlandır",
-        "haydarı sonlandır"
+        "asistani sonlandir",
+        "haydarı sonlandır",
+        "haydari sonlandir"
       ],
       "action_type": "exit",
       "threshold": 75

@@ -381,6 +381,86 @@ def test_continuous_listening_toggle_activation(actual_config):
     assert res_stop.command["id"] == "disable_continuous_listening"
 
 
+def test_press_escape_and_exit_disambiguation(actual_config):
+    """
+    Tests that 'kapat', 'escape', 'esc', 'bunu kapat' trigger press_escape (Escape key),
+    while 'haydarı kapat', 'asistanı kapat', 'kendini kapat' trigger exit_haydar,
+    and other specific closure commands ('müziği kapat', 'pencereyi kapat') remain unaffected.
+    """
+    matcher = CommandMatcher(actual_config)
+    assert matcher.wake_word_enabled is True
+
+    # 1. Escape triggers (with or without 'haydar')
+    escape_phrases = [
+        "kapat",
+        "haydar kapat",
+        "bunu kapat",
+        "haydar bunu kapat",
+        "açılanı kapat",
+        "haydar açılanı kapat",
+        "escape",
+        "haydar escape",
+        "esc",
+        "haydar esc",
+        "escape bas",
+        "esc bas",
+        "şunu kapat",
+        "kapat şunu",
+    ]
+    for phrase in escape_phrases:
+        res = matcher.find_match(phrase)
+        assert res.matched is True, f"Failed to match escape phrase: '{phrase}'"
+        assert res.command["id"] == "press_escape", f"Expected press_escape for '{phrase}', got {res.command['id']}"
+        assert res.command["action_type"] == "press"
+        assert "escape" in res.command["keys"]
+
+    # 2. Exit Haydar triggers (must NOT trigger press_escape)
+    exit_phrases = [
+        "haydarı kapat",
+        "asistanı kapat",
+        "kendini kapat",
+        "haydar asistanı kapat",
+        "haydardan çık",
+        "haydar çıkış",
+        "uygulamadan çık",
+    ]
+    for phrase in exit_phrases:
+        res = matcher.find_match(phrase)
+        assert res.matched is True, f"Failed to match exit phrase: '{phrase}'"
+        assert res.command["id"] == "exit_haydar", f"Expected exit_haydar for '{phrase}', got {res.command['id']}"
+        assert res.command["action_type"] == "exit"
+
+    # 3. Disambiguation with other 'kapat' commands
+    res_music = matcher.find_match("haydar müziği kapat")
+    assert res_music.matched is True
+    assert res_music.command["id"] == "spotify_play_pause"
+
+    res_window = matcher.find_match("haydar pencereyi kapat")
+    assert res_window.matched is True
+    assert res_window.command["id"] == "close_window"
+
+    res_tab = matcher.find_match("haydar sekmeyi kapat")
+    assert res_tab.matched is True
+    assert res_tab.command["id"] == "browser_close_tab"
+
+    res_mute = matcher.find_match("haydar sesi kapat")
+    assert res_mute.matched is True
+    assert res_mute.command["id"] == "volume_mute"
+
+    res_listen = matcher.find_match("haydar dinlemeyi kapat")
+    assert res_listen.matched is True
+    assert res_listen.command["id"] == "disable_continuous_listening"
+
+    # 4. Continuous listening mode (wake word disabled)
+    matcher.wake_word_enabled = False
+    assert matcher.find_match("kapat").command["id"] == "press_escape"
+    assert matcher.find_match("bunu kapat").command["id"] == "press_escape"
+    assert matcher.find_match("escape").command["id"] == "press_escape"
+    assert matcher.find_match("esc").command["id"] == "press_escape"
+    assert matcher.find_match("haydarı kapat").command["id"] == "exit_haydar"
+
+
+
 
 
 
