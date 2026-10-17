@@ -469,9 +469,9 @@ function findAndPlayVideo() {
         }
       } catch (_) {}
 
-      // Cross-origin iframe click simulation
-      simulateUserClick(iframe);
-      return { status: "success", element: "Video Kaynağı (iframe)" };
+      // Cross-origin iframes cannot be penetrated via parent DOM click events.
+      // We focus/scroll the iframe, and let background.js execute directly inside the child frame.
+      continue;
     }
   }
 

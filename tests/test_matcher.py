@@ -267,6 +267,51 @@ def test_browser_commands(actual_config):
     assert res10.command["id"] == "browser_play_video"
 
 
+def test_video_vs_music_disambiguation(actual_config):
+    """Ensures video playing commands never collide with Spotify/music commands."""
+    matcher = CommandMatcher(actual_config)
+    assert matcher.wake_word_enabled is True
+
+    video_phrases = [
+        "videoyu aç",
+        "video aç",
+        "haydar videoyu aç",
+        "haydar video aç",
+        "videoyu başlat",
+        "video başlat",
+        "filmi başlat",
+        "film başlat",
+        "filmi aç",
+        "film aç",
+        "diziyi aç",
+        "dizi aç",
+        "videoyu oynat",
+        "video oynat",
+    ]
+
+    for phrase in video_phrases:
+        res = matcher.find_match(phrase)
+        assert res.matched is True, f"Failed for phrase: {phrase}"
+        assert res.command["id"] == "browser_play_video", f"Expected browser_play_video for '{phrase}', got {res.command['id']}"
+        assert res.command["id"] != "spotify_play_pause", f"'{phrase}' wrongly matched spotify_play_pause!"
+
+    music_phrases = [
+        "haydar müzik çal",
+        "haydar müziği çal",
+        "haydar şarkı çal",
+        "haydar şarkıyı çal",
+        "haydar spotify çal",
+        "haydar spotify oynat",
+        "haydar müziği durdur",
+    ]
+
+    for phrase in music_phrases:
+        res = matcher.find_match(phrase)
+        assert res.matched is True, f"Failed for phrase: {phrase}"
+        assert res.command["id"] == "spotify_play_pause", f"Expected spotify_play_pause for '{phrase}', got {res.command['id']}"
+        assert res.command["id"] != "browser_play_video", f"'{phrase}' wrongly matched browser_play_video!"
+
+
 def test_continuous_listening_toggle_activation(actual_config):
     """Tests toggling continuous listening on and off with and without wake word."""
     matcher = CommandMatcher(actual_config)

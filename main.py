@@ -213,10 +213,18 @@ class VoiceWorkerThread(QThread):
             direct_video_prefixes = (
                 "sonraki bölüm", "sonraki bolum", "önceki bölüm", "onceki bolum",
                 "introyu atla", "reklamı geç", "reklamı atla",
-                "videoyu aç", "videoyu ac", "videoyu başlat", "videoyu baslat",
-                "videoyu oynat", "filmi başlat", "filmi baslat", "filmi aç", "filmi ac",
-                "filmi oynat", "diziyi başlat", "diziyi baslat", "diziyi aç", "videoyu bul",
-                "playerı aç", "playeri ac"
+                "videoyu aç", "videoyu ac", "video aç", "video ac",
+                "videoyu başlat", "videoyu baslat", "video başlat", "video baslat",
+                "videoyu oynat", "video oynat",
+                "filmi başlat", "filmi baslat", "film başlat", "film baslat",
+                "filmi aç", "filmi ac", "film aç", "film ac",
+                "filmi oynat", "film oynat",
+                "diziyi başlat", "diziyi baslat", "dizi başlat", "dizi baslat",
+                "diziyi aç", "diziyi ac", "dizi aç", "dizi ac",
+                "diziyi oynat", "dizi oynat",
+                "videoyu bul", "video bul",
+                "playerı aç", "playeri ac", "player aç", "player ac",
+                "oynatıcıyı aç", "oynatıcı aç", "oynatici ac"
             )
             if any(norm_raw.startswith(k) for k in direct_video_prefixes):
                 orig_wake_setting = self.matcher.wake_word_enabled
