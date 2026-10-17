@@ -188,6 +188,19 @@ class CommandMatcher:
         if not words:
             return "", False
 
+        # Whitelisted direct multimedia commands that work with or without saying 'haydar'
+        direct_prefixes = (
+            "sonraki bölüm",
+            "sonraki bolum",
+            "önceki bölüm",
+            "onceki bolum",
+            "introyu atla",
+            "reklamı geç",
+            "reklamı atla",
+        )
+        if any(normalized.startswith(p) for p in direct_prefixes):
+            return normalized, True
+
         # Check if wake word is present
         # e.g., 'haydar masaüstüne dön' or 'hey haydar videoyu durdur'
         wake_idx = -1
