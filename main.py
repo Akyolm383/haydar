@@ -129,6 +129,10 @@ class VoiceWorkerThread(QThread):
                     status = resp.get("status")
                     if status in ("success", "timeout"):
                         elem_text = resp.get("element", click_target)
+                        if str(elem_text).lower() in ("önceki bölüm", "onceki bolum", "önceki", "onceki"):
+                            elem_text = "Önceki Bölüm"
+                        elif str(elem_text).lower() in ("sonraki bölüm", "sonraki bolum", "sonraki"):
+                            elem_text = "Sonraki Bölüm"
                         self.signals.sig_executed.emit(
                             f"'{elem_text}' tıklandı",
                             ["Web Extension"],
@@ -216,7 +220,7 @@ class VoiceWorkerThread(QThread):
             direct_video_prefixes = (
                 "sonraki bölüm", "sonraki bolum", "önceki bölüm", "onceki bolum",
                 "tıkla sonraki bölüm", "tıkla sonraki bolum", "tıkla sıradaki bölüm", "tıkla sonraki",
-                "tıkla önceki bölüm", "tıkla onceki bolum", "tıkla önceki",
+                "tıkla önceki bölüm", "tıkla onceki bolum", "tıkla önceki", "tıkla onceki",
                 "introyu atla", "reklamı geç", "reklamı atla",
                 "videoyu aç", "videoyu ac", "video aç", "video ac",
                 "videoyu başlat", "videoyu baslat", "video başlat", "video baslat",
@@ -245,6 +249,10 @@ class VoiceWorkerThread(QThread):
                         if direct_match.command.get("browser_action") == "play_video":
                             disp = f"{elem} başlatıldı"
                         elif direct_match.command.get("browser_action") == "click_button":
+                            if direct_match.command.get("id") == "browser_prev_episode" and str(elem).lower() in ("önceki bölüm", "onceki bolum", "önceki", "onceki"):
+                                elem = "Önceki Bölüm"
+                            elif direct_match.command.get("id") == "browser_next_episode" and str(elem).lower() in ("sonraki bölüm", "sonraki bolum", "sonraki"):
+                                elem = "Sonraki Bölüm"
                             disp = f"'{elem}' tıklandı"
                         else:
                             disp = elem
@@ -283,6 +291,10 @@ class VoiceWorkerThread(QThread):
                     status = resp.get("status")
                     if status in ("success", "timeout"):
                         elem_text = resp.get("element", click_target)
+                        if str(elem_text).lower() in ("önceki bölüm", "onceki bolum", "önceki", "onceki"):
+                            elem_text = "Önceki Bölüm"
+                        elif str(elem_text).lower() in ("sonraki bölüm", "sonraki bolum", "sonraki"):
+                            elem_text = "Sonraki Bölüm"
                         self.signals.sig_executed.emit(
                             f"'{elem_text}' tıklandı",
                             ["Web Extension"],

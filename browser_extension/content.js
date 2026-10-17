@@ -13,15 +13,22 @@ try {
   }).catch(() => {});
 } catch (_) {}
 
-// Turkish-aware text normalization
+// Turkish-aware text normalization with full ASCII folding
 function normalizeTr(text) {
   if (!text) return "";
-  const map = { "İ": "i", "I": "ı", "Ğ": "ğ", "Ü": "ü", "Ş": "ş", "Ö": "ö", "Ç": "ç" };
+  const map = {
+    "İ": "i", "I": "i", "ı": "i",
+    "Ğ": "g", "ğ": "g",
+    "Ü": "u", "ü": "u",
+    "Ş": "s", "ş": "s",
+    "Ö": "o", "ö": "o",
+    "Ç": "c", "ç": "c"
+  };
   let str = String(text);
-  for (const [upper, lower] of Object.entries(map)) {
-    str = str.replaceAll(upper, lower);
+  for (const [k, v] of Object.entries(map)) {
+    str = str.replaceAll(k, v);
   }
-  return str.toLowerCase().replace(/[^\w\s\dçğıöşü]/g, " ").replace(/\s+/g, " ").trim();
+  return str.toLowerCase().replace(/[^\w\s\d]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function isElementVisible(el) {
@@ -37,7 +44,7 @@ function isElementVisible(el) {
 
 // Known platform-specific selector maps (Site and player explicit hooks)
 const PLATFORM_SELECTORS = {
-  "sonraki bölüm": [
+  "sonraki bolum": [
     // YouTube
     ".ytp-next-button",
     "a.ytp-next-button",
@@ -48,7 +55,8 @@ const PLATFORM_SELECTORS = {
     // Disney+ / Prime
     "[data-testid='player-next-button']",
     ".atvwebplayersdk-next-episode",
-    // Yerli & yabancı dizi/film siteleri
+    // Standard and yerli & yabancı dizi/film siteleri
+    "a[rel='next']",
     ".next-episode",
     "button.next-episode",
     "a.next-episode",
@@ -56,27 +64,60 @@ const PLATFORM_SELECTORS = {
     "a.sonraki-bolum",
     "button.sonraki-bolum",
     ".nextEpisode",
+    "a.next",
+    "button.next",
+    "a.btn-next",
+    "button.btn-next",
+    "a[class*='next' i]",
+    "button[class*='next' i]",
+    "a[id*='next' i]",
+    "button[id*='next' i]",
     "a[title*='Sonraki' i]",
     "button[title*='Sonraki' i]",
+    "a[title*='sonraki' i]",
+    "button[title*='sonraki' i]",
     "a[title*='Next' i]",
     "button[title*='Next' i]",
     "a[aria-label*='Sonraki' i]",
     "button[aria-label*='Sonraki' i]",
+    "a[aria-label*='sonraki' i]",
+    "button[aria-label*='sonraki' i]",
+    "a[aria-label*='Next' i]",
+    "button[aria-label*='Next' i]",
     "[data-action='next-episode']"
   ],
-  "önceki bölüm": [
+  "onceki bolum": [
+    // Standard and yerli & yabancı dizi/film siteleri
+    "a[rel='prev']",
     ".prev-episode",
     "button.prev-episode",
     "a.prev-episode",
     ".onceki-bolum",
     "a.onceki-bolum",
     "button.onceki-bolum",
+    ".prevEpisode",
+    "a.prev",
+    "button.prev",
+    "a.btn-prev",
+    "button.btn-prev",
+    "a[class*='prev' i]",
+    "button[class*='prev' i]",
+    "a[id*='prev' i]",
+    "button[id*='prev' i]",
     "a[title*='Önceki' i]",
     "button[title*='Önceki' i]",
+    "a[title*='onceki' i]",
+    "button[title*='onceki' i]",
     "a[title*='Previous' i]",
     "button[title*='Previous' i]",
     "a[aria-label*='Önceki' i]",
-    "button[aria-label*='Önceki' i]"
+    "button[aria-label*='Önceki' i]",
+    "a[aria-label*='onceki' i]",
+    "button[aria-label*='onceki' i]",
+    "a[aria-label*='Previous' i]",
+    "button[aria-label*='Previous' i]",
+    "[data-action='prev-episode']",
+    "[data-action='previous-episode']"
   ],
   "introyu atla": [
     // Netflix
@@ -91,7 +132,7 @@ const PLATFORM_SELECTORS = {
     "[aria-label*='Atla' i]",
     "[aria-label*='Skip' i]"
   ],
-  "reklamı geç": [
+  "reklami gec": [
     // YouTube
     ".ytp-ad-skip-button",
     ".ytp-ad-skip-button-modern",
@@ -106,13 +147,13 @@ const PLATFORM_SELECTORS = {
 
 // Fallback player control icons (only checked if NO webpage link/button exists)
 const PLAYER_FALLBACK_ICONS = {
-  "sonraki bölüm": [
+  "sonraki bolum": [
     ".jw-icon-next",
     ".vjs-next-button",
     ".fa-step-forward",
     ".fa-forward"
   ],
-  "önceki bölüm": [
+  "onceki bolum": [
     ".jw-icon-prev",
     ".vjs-prev-button",
     ".fa-step-backward",
@@ -121,22 +162,21 @@ const PLAYER_FALLBACK_ICONS = {
 };
 
 const SYNONYM_MAP = {
-  "sonraki bölüm": [
-    "sonraki bölüm", "sonraki bolum", "sonraki", "next", "next episode", "next video",
-    "sonraki video", "sıradaki bölüm", "siradaki bolum", "sıradaki", "siradaki", "sonraki part", "ileri",
-    "sonraki bölüme geç", "sonraki bolume gec", "sonraki bolume atla", "sonraki bolumu aç", "sonraki bolumu ac",
-    "sıradaki bölüme geç", "siradaki bolume gec", "sonraki bölüme git", "sonraki bolume git"
+  "sonraki bolum": [
+    "sonraki bolum", "sonraki", "next", "next episode", "next video",
+    "sonraki video", "siradaki bolum", "siradaki", "sonraki part", "ileri",
+    "sonraki bolume gec", "sonraki bolume atla", "sonraki bolumu ac",
+    "siradaki bolume gec", "sonraki bolume git"
   ],
-  "önceki bölüm": [
-    "önceki bölüm", "önceki bolum", "onceki bölüm", "onceki bolum", "önceki", "onceki",
-    "bir önceki bölüm", "bir onceki bolum", "previous episode", "previous", "prev", "geri",
-    "önceki bölüme geç", "onceki bolume gec", "önceki bölüme git", "onceki bolume git"
+  "onceki bolum": [
+    "onceki bolum", "onceki", "bir onceki bolum", "bir onceki", "previous episode",
+    "previous", "prev", "geri", "onceki bolume gec", "onceki bolume git", "onceki bolume atla"
   ],
   "introyu atla": [
-    "introyu atla", "intro atla", "jeneriği atla", "jenerik atla", "skip intro", "atla", "skip"
+    "introyu atla", "intro atla", "jenerigi atla", "jenerik atla", "skip intro", "atla", "skip"
   ],
-  "reklamı geç": [
-    "reklamı geç", "reklamı atla", "reklam geç", "reklam atla", "skip ad", "skip ads", "reklam"
+  "reklami gec": [
+    "reklami gec", "reklami atla", "reklam gec", "reklam atla", "skip ad", "skip ads", "reklam"
   ]
 };
 
@@ -244,7 +284,7 @@ function findTargetButton(targetPhrase) {
       if (!norm) continue;
 
       for (const syn of synonyms) {
-        if (norm.startsWith(syn) || norm.includes(syn) || syn.includes(norm)) {
+        if (syn.length >= 4 && (norm.startsWith(syn) || norm.includes(syn))) {
           const clickable = el.closest("button, a, [role='button']") || el;
           return { element: clickable, label: raw.trim() || targetPhrase, isYouTube: false };
         }
@@ -252,7 +292,7 @@ function findTargetButton(targetPhrase) {
     }
   }
 
-  // 4. Check known platform selectors for Netflix, Anime, Series sites (e.g. .next-episode, .sonraki-bolum)
+  // 4. Check known platform selectors for Netflix, Anime, Series sites (e.g. .next-episode, .sonraki-bolum, a[rel='prev'])
   for (const [key, selectors] of Object.entries(PLATFORM_SELECTORS)) {
     const normKey = normalizeTr(key);
     if (normTarget.includes(normKey) || normKey.includes(normTarget)) {

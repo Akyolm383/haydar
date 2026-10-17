@@ -387,9 +387,24 @@ async function handleCommand(cmd) {
         }
       }
 
+      // If top frame returned not_found, search subframes (if any exist)
+      if (cmd.action === "click_button" && tabResponse && tabResponse.status === "not_found") {
+        if (knownTabFrames.has(activeTab.id)) {
+          const frameIds = Array.from(knownTabFrames.get(activeTab.id)).filter(id => id !== 0);
+          for (const fId of frameIds) {
+            try {
+              const fRes = await chrome.tabs.sendMessage(activeTab.id, cmd, { frameId: fId });
+              if (fRes && fRes.status === "success") {
+                return { id: msgId, ...fRes };
+              }
+            } catch (_) {}
+          }
+        }
+      }
+
       return {
         id: msgId,
-        ...(tabResponse || { status: "success", element: cmd.target || "Video Oynatıcı" })
+        ...(tabResponse || { status: "success", element: cmd.target || "Önceki Bölüm" })
       };
     } catch (sendErr) {
       const errMsg = (sendErr && sendErr.message) ? sendErr.message.toLowerCase() : "";
@@ -399,13 +414,22 @@ async function handleCommand(cmd) {
       const currentTab = await chrome.tabs.get(activeTab.id).catch(() => null);
       const isNavigating = !currentTab || currentTab.status === "loading" || currentTab.url !== prevUrl;
 
+      const isDisconnectError =
+        errMsg.includes("closed before") ||
+        errMsg.includes("navigating") ||
+        errMsg.includes("receiving end") ||
+        errMsg.includes("could not establish connection") ||
+        errMsg.includes("frame") ||
+        errMsg.includes("context was destroyed") ||
+        errMsg.includes("context invalidated");
+
       // For button clicks: if page navigated or port closed, the click succeeded!
-      if (cmd.action === "click_button" && (isNavigating || errMsg.includes("closed before") || errMsg.includes("navigating"))) {
-        console.log("[Haydar Background] Click caused page navigation. Treating as success.");
+      if (cmd.action === "click_button" && (isNavigating || isDisconnectError)) {
+        console.log("[Haydar Background] Click caused page navigation/disconnect. Treating as success.");
         return {
           id: msgId,
           status: "success",
-          element: cmd.target || "Sonraki Bölüm"
+          element: cmd.target || "Önceki Bölüm"
         };
       }
 
@@ -433,15 +457,14 @@ async function handleCommand(cmd) {
         const retryResponse = await chrome.tabs.sendMessage(activeTab.id, cmd);
         return {
           id: msgId,
-          ...(retryResponse || { status: "success", element: cmd.target || "Sonraki Bölüm" })
+          ...(retryResponse || { status: "success", element: cmd.target || "Önceki Bölüm" })
         };
       } catch (retryErr) {
-        const retryMsg = (retryErr && retryErr.message) ? retryErr.message.toLowerCase() : "";
-        if (cmd.action === "click_button" && (retryMsg.includes("closed before") || retryMsg.includes("navigating") || retryMsg.includes("receiving end"))) {
+        if (cmd.action === "click_button") {
           return {
             id: msgId,
             status: "success",
-            element: cmd.target || "Sonraki Bölüm"
+            element: cmd.target || "Önceki Bölüm"
           };
         }
         throw retryErr;
