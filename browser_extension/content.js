@@ -694,11 +694,23 @@ chrome.runtime.onMessage.addListener((cmd, sender, sendResponse) => {
   if (action === "click_button") {
     const result = findTargetButton(target);
     if (result && result.element) {
-      // Send success response immediately BEFORE navigation destroys context
-      sendResponse({ status: "success", element: result.label || target });
-      // Execute click with 60ms delay so message has already safely left the page and reached background.js
+      const clickLabel = result.label || target;
+
+      // 1. Immediately notify background via one-way runtime message so background KNOWS a click has started
+      try {
+        chrome.runtime.sendMessage({
+          type: "button_click_started",
+          cmdId: cmd.id,
+          element: clickLabel
+        }).catch(() => {});
+      } catch (_) {}
+
+      // 2. Send success response immediately BEFORE navigation destroys context
+      sendResponse({ status: "success", element: clickLabel });
+
+      // 3. Execute click with 60ms delay so message has already safely left the page and reached background.js
       setTimeout(() => {
-        executeElementClick(result.element, result.label, result.isYouTube);
+        executeElementClick(result.element, clickLabel, result.isYouTube);
       }, 60);
     } else {
       sendResponse({

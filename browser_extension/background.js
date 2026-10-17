@@ -59,6 +59,8 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 // Track frames where content script has reported in
 const knownTabFrames = new Map();
+// Track in-flight click commands that were confirmed by a content script
+const activeClickConfirmations = new Map();
 
 // Message listener from offscreen.js, content.js or popup.html
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -69,6 +71,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
     if (sender.frameId !== undefined) {
       knownTabFrames.get(tabId).add(sender.frameId);
+    }
+    sendResponse({ ok: true });
+    return true;
+  }
+  if (msg.type === "button_click_started") {
+    console.log("[Haydar Background] Button click started confirmation received for cmdId:", msg.cmdId);
+    if (msg.cmdId) {
+      activeClickConfirmations.set(msg.cmdId, { element: msg.element || "Buton" });
     }
     sendResponse({ ok: true });
     return true;
@@ -387,6 +397,13 @@ async function handleCommand(cmd) {
         }
       }
 
+      // Check if button click was confirmed by any frame
+      if (cmd.action === "click_button" && activeClickConfirmations.has(msgId)) {
+        const conf = activeClickConfirmations.get(msgId);
+        activeClickConfirmations.delete(msgId);
+        return { id: msgId, status: "success", element: conf.element || cmd.target || "Önceki Bölüm" };
+      }
+
       // If top frame returned not_found, search subframes (if any exist)
       if (cmd.action === "click_button" && tabResponse && tabResponse.status === "not_found") {
         if (knownTabFrames.has(activeTab.id)) {
@@ -398,7 +415,27 @@ async function handleCommand(cmd) {
                 return { id: msgId, ...fRes };
               }
             } catch (_) {}
+
+            if (activeClickConfirmations.has(msgId)) {
+              const conf = activeClickConfirmations.get(msgId);
+              activeClickConfirmations.delete(msgId);
+              return { id: msgId, status: "success", element: conf.element || cmd.target || "Önceki Bölüm" };
+            }
           }
+        }
+      }
+
+      // Check if button click was confirmed or navigation happened
+      if (cmd.action === "click_button") {
+        if (activeClickConfirmations.has(msgId)) {
+          const conf = activeClickConfirmations.get(msgId);
+          activeClickConfirmations.delete(msgId);
+          return { id: msgId, status: "success", element: conf.element || cmd.target || "Önceki Bölüm" };
+        }
+        const currentTab = await chrome.tabs.get(activeTab.id).catch(() => null);
+        if (!currentTab || currentTab.status === "loading" || currentTab.url !== prevUrl) {
+          console.log("[Haydar Background] Page navigation detected during click. Treating as success.");
+          return { id: msgId, status: "success", element: cmd.target || "Önceki Bölüm" };
         }
       }
 
@@ -409,6 +446,13 @@ async function handleCommand(cmd) {
     } catch (sendErr) {
       const errMsg = (sendErr && sendErr.message) ? sendErr.message.toLowerCase() : "";
       console.log("[Haydar Background] sendMessage catch:", errMsg);
+
+      // Check if content script confirmed click
+      if (cmd.action === "click_button" && activeClickConfirmations.has(msgId)) {
+        const conf = activeClickConfirmations.get(msgId);
+        activeClickConfirmations.delete(msgId);
+        return { id: msgId, status: "success", element: conf.element || cmd.target || "Önceki Bölüm" };
+      }
 
       // Inspect if navigation occurred or context was severed
       const currentTab = await chrome.tabs.get(activeTab.id).catch(() => null);
