@@ -34,6 +34,10 @@ Apple'ın Dynamic Island konseptinden ilham alan şık, donanım ivmeli **PyQt6 
 
 ### 🌐 3. Haydar Web Bridge - Akıllı Tarayıcı Kontrolü
 - **Yerel WebSocket Köprüsü:** Haydar, arka planda güvenli ve hafif bir `ws://127.0.0.1:8765` sunucusu çalıştırır. Tarayıcı eklentisi doğrudan bağlanır.
+- **Evrensel Video ve Film Başlatıcı (Yeni!):**
+  - *"Haydar videoyu aç"*, *"videoyu başlat"*, *"filmi başlat"*, *"videoyu oynat"*, *"videoyu bul"*:
+  - Film, dizi ve anime sitelerinde player açılmadığında veya sahte kapaklar/büyük oynat butonları arkasında kaldığında Haydar sayfayı tarar.
+  - HTML5 `<video>` etiketlerini, Video.js, JWPlayer, Plyr büyük play butonlarını, "Filmi Başlat/İzle" butonlarını ve Vidmoly/Doodstream gibi gömülü iframe playerlarını anında bulup ekrana odaklar ve oynatmayı başlatır!
 - **Dizilerde & Videolarda Otomasyon:**
   - *"Haydar sonraki bölüm"* (veya *"sıradaki bölüm"*): YouTube, Netflix, yerli/yabancı dizi ve anime sitelerindeki "Sonraki Bölüm" butonunu anında bulup tıklar!
   - *"Haydar introyu atla"*: Netflix ve video oynatıcılardaki intro/jenerik atlama butonuna tıklar.
@@ -41,8 +45,8 @@ Apple'ın Dynamic Island konseptinden ilham alan şık, donanım ivmeli **PyQt6 
   - *"Haydar aşağı kaydır"* / *"yukarı kaydır"*: Sayfayı yumuşak bir animasyonla akıcı şekilde kaydırır.
 - **Dinamik Buton Tıklama ("Haydar tıkla [X]"):**
   - *"Haydar tıkla abone ol"*, *"Haydar sepete ekle butonuna bas"*, *"Haydar tıkla sonraki sayfa"* gibi ifadeleri sayfadaki tüm buton, link ve metinlerde arar ve tıklar.
-- **Görsel Vurgu Efekti:** Sayfada tıklanan butonun üzerinde 1 saniyeliğine neon zümrüt yeşili bir parlama halkası görünür.
-- **Dinamik Ada Geri Bildirimi:** Eylem gerçekleştiğinde ada yeşil parlayarak **`🎯 "Sonraki Bölüm" tıklandı [ Web Extension ]`** rozeti gösterir.
+- **Görsel Vurgu Efekti:** Sayfada tıklanan butonun veya oynatıcının üzerinde 1 saniyeliğine neon zümrüt yeşili bir parlama halkası görünür.
+- **Dinamik Ada Geri Bildirimi:** Eylem gerçekleştiğinde ada yeşil parlayarak **`🎯 "Video Oynatıcı" başlatıldı [ Web Extension ]`** rozeti gösterir.
 
 ### 🪟 3. Akıllı Alt+Tab Pencere Seçici
 - **Pencereleri Ekrana Sabitleme:** *"Haydar pencere değiştir"* (veya *"Haydar pencereleri göster"*, *"Haydar alt tab"*) dediğinizde Windows görev değiştiriciyi ekranda açık tutar (`Ctrl + Alt + Tab`).
@@ -78,7 +82,8 @@ Apple'ın Dynamic Island konseptinden ilham alan şık, donanım ivmeli **PyQt6 
 | :--- | :--- | :--- | :--- |
 | **Sürekli Dinleme (Toggle)** | *"Haydar dinle"*, *"sürekli dinle"*, *"dinle"* | Sürekli aktif dinlemeyi açar (Wake-word gereksizleşir) | `[ Sürekli Dinleme ]` |
 | | *"Haydar dinleme"*, *"dinleme"*, *"dinlemeyi durdur"* | Sürekli dinlemeyi kapatır, Wake-word moduna döner | `[ Wake Word: Haydar ]` |
-| **Tarayıcı & Web Bridge** | *"Haydar sonraki bölüm"*, *"sıradaki bölüm"* | Dizide/videoda sonraki bölüme geçer | `[ Web Extension ]` |
+| **Tarayıcı & Web Bridge** | *"Haydar videoyu aç"*, *"videoyu başlat"*, *"filmi başlat"* | Sayfadaki video oynatıcıyı bulur ve başlatır | `[ Web Extension ]` |
+| | *"Haydar sonraki bölüm"*, *"sıradaki bölüm"* | Dizide/videoda sonraki bölüme geçer | `[ Web Extension ]` |
 | | *"Haydar önceki bölüm"*, *"bir önceki bölüm"* | Önceki bölüme geçer | `[ Web Extension ]` |
 | | *"Haydar introyu atla"*, *"jeneriği atla"* | Video introsunu / jeneriğini atlar | `[ Web Extension ]` |
 | | *"Haydar reklamı geç"*, *"reklamı atla"* | Video reklamını anında geçer | `[ Web Extension ]` |

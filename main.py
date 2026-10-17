@@ -176,8 +176,14 @@ class VoiceWorkerThread(QThread):
                         status = browser_res.get("status")
                         if status in ("success", "timeout"):
                             elem_text = browser_res.get("element") or cmd.get("description", "")
+                            if cmd.get("browser_action") == "play_video":
+                                disp_msg = f"{elem_text} başlatıldı"
+                            elif cmd.get("browser_action") == "click_button":
+                                disp_msg = f"'{elem_text}' tıklandı"
+                            else:
+                                disp_msg = elem_text
                             self.signals.sig_executed.emit(
-                                f"'{elem_text}' tıklandı" if cmd.get("browser_action") == "click_button" else elem_text,
+                                disp_msg,
                                 ["Web Extension"],
                                 match_res.score or 100.0,
                             )
@@ -202,9 +208,17 @@ class VoiceWorkerThread(QThread):
             match_result = self.matcher.find_match(raw_text)
             processed_text, wake_detected = self.matcher.extract_command_text(raw_text)
 
-            # Direct video browser commands (works with 'Haydar sonraki bölüm' or simply 'sonraki bölüm'):
+            # Direct video browser commands (works with 'Haydar ...' or simply without 'Haydar'):
             norm_raw = normalize_turkish(raw_text)
-            if any(norm_raw.startswith(k) for k in ["sonraki bölüm", "sonraki bolum", "önceki bölüm", "onceki bolum", "introyu atla", "reklamı geç"]):
+            direct_video_prefixes = (
+                "sonraki bölüm", "sonraki bolum", "önceki bölüm", "onceki bolum",
+                "introyu atla", "reklamı geç", "reklamı atla",
+                "videoyu aç", "videoyu ac", "videoyu başlat", "videoyu baslat",
+                "videoyu oynat", "filmi başlat", "filmi baslat", "filmi aç", "filmi ac",
+                "filmi oynat", "diziyi başlat", "diziyi baslat", "diziyi aç", "videoyu bul",
+                "playerı aç", "playeri ac"
+            )
+            if any(norm_raw.startswith(k) for k in direct_video_prefixes):
                 orig_wake_setting = self.matcher.wake_word_enabled
                 self.matcher.wake_word_enabled = False
                 direct_match = self.matcher.find_match(raw_text)
@@ -215,15 +229,22 @@ class VoiceWorkerThread(QThread):
                     status = b_res.get("status")
                     if status in ("success", "timeout"):
                         elem = b_res.get("element") or direct_match.command.get("description", "")
+                        if direct_match.command.get("browser_action") == "play_video":
+                            disp = f"{elem} başlatıldı"
+                        elif direct_match.command.get("browser_action") == "click_button":
+                            disp = f"'{elem}' tıklandı"
+                        else:
+                            disp = elem
                         self.signals.sig_executed.emit(
-                            f"'{elem}' tıklandı" if direct_match.command.get("browser_action") == "click_button" else elem,
+                            disp,
                             ["Web Extension"],
                             100.0,
                         )
                     elif status == "no_extension":
                         self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
                     else:
-                        self.signals.sig_unmatched.emit(f"'{direct_match.command.get('target', 'Buton')}' bulunamadı", 0.0)
+                        target_name = direct_match.command.get("target") or "Video Oynatıcı"
+                        self.signals.sig_unmatched.emit(f"'{target_name}' bulunamadı", 0.0)
                     continue
 
             # Direct single-shot window command: e.g. "haydar 5. pencere", "haydar 3. pencereye geç"
@@ -297,15 +318,22 @@ class VoiceWorkerThread(QThread):
                     status = browser_res.get("status")
                     if status in ("success", "timeout"):
                         elem_text = browser_res.get("element") or cmd.get("description", "")
+                        if cmd.get("browser_action") == "play_video":
+                            disp_msg = f"{elem_text} başlatıldı"
+                        elif cmd.get("browser_action") == "click_button":
+                            disp_msg = f"'{elem_text}' tıklandı"
+                        else:
+                            disp_msg = elem_text
                         self.signals.sig_executed.emit(
-                            f"'{elem_text}' tıklandı" if cmd.get("browser_action") == "click_button" else elem_text,
+                            disp_msg,
                             ["Web Extension"],
                             match_result.score or 100.0,
                         )
                     elif status == "no_extension":
                         self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
                     else:
-                        self.signals.sig_unmatched.emit(f"'{cmd.get('target', 'Buton')}' bulunamadı", 0.0)
+                        target_name = cmd.get("target") or "Video Oynatıcı"
+                        self.signals.sig_unmatched.emit(f"'{target_name}' bulunamadı", 0.0)
                     continue
 
                 # User said standard command in one breath

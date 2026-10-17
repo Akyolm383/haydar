@@ -247,6 +247,25 @@ def test_browser_commands(actual_config):
     assert res6.matched is True
     assert res6.command["id"] == "browser_scroll_up"
 
+    # Universal video player detection & playback
+    res7 = matcher.find_match("haydar videoyu aç")
+    assert res7.matched is True
+    assert res7.command["id"] == "browser_play_video"
+    assert res7.command["action_type"] == "browser"
+    assert res7.command["browser_action"] == "play_video"
+
+    res8 = matcher.find_match("videoyu başlat")
+    assert res8.matched is True
+    assert res8.command["id"] == "browser_play_video"
+
+    res9 = matcher.find_match("filmi başlat")
+    assert res9.matched is True
+    assert res9.command["id"] == "browser_play_video"
+
+    res10 = matcher.find_match("videoyu bul")
+    assert res10.matched is True
+    assert res10.command["id"] == "browser_play_video"
+
 
 def test_continuous_listening_toggle_activation(actual_config):
     """Tests toggling continuous listening on and off with and without wake word."""

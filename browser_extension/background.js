@@ -94,16 +94,47 @@ async function handleCommand(cmd) {
     // Try sending command to content script
     try {
       const tabResponse = await chrome.tabs.sendMessage(activeTab.id, cmd);
+
+      // If action is play_video and top frame didn't find a playable element, scan all frames
+      if (cmd.action === "play_video" && (!tabResponse || tabResponse.status !== "success")) {
+        try {
+          const frameResults = await chrome.scripting.executeScript({
+            target: { tabId: activeTab.id, allFrames: true },
+            func: () => {
+              const v = document.querySelector("video");
+              if (v) {
+                try { v.scrollIntoView({ behavior: "smooth", block: "center" }); v.focus(); } catch (_) {}
+                v.play().catch(() => {});
+                return { found: true, element: "Video Oynatıcı" };
+              }
+              const btn = document.querySelector(
+                ".vjs-big-play-button, .jw-display-icon-container, [class*='play-btn' i], [class*='big-play' i], button"
+              );
+              if (btn) {
+                try { btn.scrollIntoView({ behavior: "smooth", block: "center" }); btn.focus(); } catch (_) {}
+                btn.click();
+                return { found: true, element: "Video Oynatıcı" };
+              }
+              return { found: false };
+            }
+          });
+          const successFrame = frameResults.find(r => r.result && r.result.found);
+          if (successFrame) {
+            return { id: msgId, status: "success", element: "Video Oynatıcı" };
+          }
+        } catch (_) {}
+      }
+
       return {
         id: msgId,
-        ...(tabResponse || { status: "success", element: cmd.target || "Sonraki Video" })
+        ...(tabResponse || { status: "success", element: cmd.target || "Video Oynatıcı" })
       };
     } catch (sendErr) {
       if (sendErr && sendErr.message && (sendErr.message.includes("closed before a response") || sendErr.message.includes("navigating"))) {
         return {
           id: msgId,
           status: "success",
-          element: cmd.target || "Sonraki Video"
+          element: cmd.target || "Video Oynatıcı"
         };
       }
       console.log("[Haydar Background] Content script not detected in tab, injecting dynamically...");

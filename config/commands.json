@@ -170,7 +170,6 @@
         "video beklesin",
         "durdur",
         "video oynasın",
-        "videoyu oynat",
         "oynat",
         "devam et",
         "beklet",
@@ -634,6 +633,34 @@
       ],
       "action_type": "browser",
       "browser_action": "scroll_up",
+      "threshold": 70
+    },
+    {
+      "id": "browser_play_video",
+      "description": "Tarayıcıdaki videoyu bulur ve oynatır",
+      "triggers": [
+        "videoyu aç",
+        "videoyu ac",
+        "videoyu başlat",
+        "videoyu baslat",
+        "videoyu oynat",
+        "filmi başlat",
+        "filmi baslat",
+        "filmi aç",
+        "filmi ac",
+        "filmi oynat",
+        "diziyi başlat",
+        "diziyi baslat",
+        "diziyi aç",
+        "videoyu bul",
+        "playerı aç",
+        "playeri ac",
+        "videoyu çalıştır",
+        "oynatıcıyı aç",
+        "videoyu başlatır mısın"
+      ],
+      "action_type": "browser",
+      "browser_action": "play_video",
       "threshold": 70
     },
     {

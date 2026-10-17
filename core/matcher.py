@@ -197,6 +197,22 @@ class CommandMatcher:
             "introyu atla",
             "reklamı geç",
             "reklamı atla",
+            "videoyu aç",
+            "videoyu ac",
+            "videoyu başlat",
+            "videoyu baslat",
+            "videoyu oynat",
+            "filmi başlat",
+            "filmi baslat",
+            "filmi aç",
+            "filmi ac",
+            "filmi oynat",
+            "diziyi başlat",
+            "diziyi baslat",
+            "diziyi aç",
+            "videoyu bul",
+            "playerı aç",
+            "playeri ac",
         )
         if any(normalized.startswith(p) for p in direct_prefixes):
             return normalized, True
