@@ -130,7 +130,33 @@ class ActionExecutor:
         browser_action = command.get("browser_action", "click_button")
         target = command.get("target", "")
         params = command.get("params", {})
-        return web_bridge.send_command(action=browser_action, target=target, params=params)
+        res = web_bridge.send_command(action=browser_action, target=target, params=params)
+        print(f"[Haydar WebBridge] Eylem: {browser_action}, Yanıt: {res}")
+
+        # Hardware-level OS click engine for video players (bypasses iframe sandboxes and autoplay restrictions)
+        if res.get("status") == "success" and res.get("click_screen"):
+            x = res.get("screen_x")
+            y = res.get("screen_y")
+            if x is not None and y is not None:
+                try:
+                    orig_x, orig_y = pyautogui.position()
+                    print(f"[Haydar Donanım Tıklama] Video oynatıcı koordinatları: X={x}, Y={y}")
+                    pyautogui.click(x, y)
+                    time.sleep(0.12)
+                    pyautogui.click(x, y)  # Double-click to bypass ad overlay / popup shields
+                    pyautogui.moveTo(orig_x, orig_y)
+                except Exception as e:
+                    print(f"[Haydar Donanım Tıklama Hatası] {e}")
+
+        # Fallback for video play if extension returned not_found: press spacebar on active window
+        elif browser_action == "play_video" and res.get("status") not in ("success", "timeout", "no_extension"):
+            try:
+                print("[Haydar Video Fallback] Boşluk tuşu (Space) basılıyor...")
+                pyautogui.press("space")
+            except Exception:
+                pass
+
+        return res
 
     def browser_click_custom(self, target: str) -> Dict[str, Any]:
         """Clicks a dynamically extracted target text in active browser tab."""

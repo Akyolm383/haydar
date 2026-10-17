@@ -324,6 +324,16 @@ function simulateUserClick(el) {
   el.click();
 }
 
+function getElementScreenCoords(el) {
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  const titleBarHeight = Math.max(0, window.outerHeight - window.innerHeight);
+  const borderWidth = Math.max(0, (window.outerWidth - window.innerWidth) / 2);
+  const screenX = Math.round(window.screenLeft + borderWidth + rect.left + rect.width / 2);
+  const screenY = Math.round(window.screenTop + titleBarHeight + rect.top + rect.height / 2);
+  return { x: screenX, y: screenY };
+}
+
 // Universal Video Finder and Player Engine
 function findAndPlayVideo() {
   // 1. Direct HTML5 <video> elements
@@ -356,7 +366,14 @@ function findAndPlayVideo() {
         } else {
           simulateUserClick(v);
         }
-        return { status: "success", element: "Video Oynatıcı" };
+        const coords = getElementScreenCoords(v);
+        return {
+          status: "success",
+          element: "Video Oynatıcı",
+          click_screen: true,
+          screen_x: coords ? coords.x : null,
+          screen_y: coords ? coords.y : null
+        };
       }
     }
   }
@@ -413,7 +430,14 @@ function findAndPlayVideo() {
         if (isElementVisible(el)) {
           const clickable = el.closest("button, a, [role='button'], div") || el;
           simulateUserClick(clickable);
-          return { status: "success", element: "Video Oynatıcı" };
+          const coords = getElementScreenCoords(clickable);
+          return {
+            status: "success",
+            element: "Video Oynatıcı",
+            click_screen: true,
+            screen_x: coords ? coords.x : null,
+            screen_y: coords ? coords.y : null
+          };
         }
       }
     } catch (_) {}
@@ -436,7 +460,14 @@ function findAndPlayVideo() {
     if (txt && playTerms.includes(txt)) {
       const clickable = el.closest("button, a, [role='button'], div") || el;
       simulateUserClick(clickable);
-      return { status: "success", element: el.innerText.trim() || "Video Başlat" };
+      const coords = getElementScreenCoords(clickable);
+      return {
+        status: "success",
+        element: el.innerText.trim() || "Video Başlat",
+        click_screen: true,
+        screen_x: coords ? coords.x : null,
+        screen_y: coords ? coords.y : null
+      };
     }
   }
 
@@ -469,20 +500,41 @@ function findAndPlayVideo() {
           if (innerV) {
             innerV.play().catch(() => simulateUserClick(innerV));
             highlightElement(iframe);
-            return { status: "success", element: "Video Oynatıcı" };
+            const coords = getElementScreenCoords(iframe);
+            return {
+              status: "success",
+              element: "Video Oynatıcı",
+              click_screen: true,
+              screen_x: coords ? coords.x : null,
+              screen_y: coords ? coords.y : null
+            };
           }
           const innerBtn = iframe.contentDocument.querySelector(".vjs-big-play-button, .jw-display-icon-container, [class*='play' i], button");
           if (innerBtn) {
             simulateUserClick(innerBtn);
             highlightElement(iframe);
-            return { status: "success", element: "Video Oynatıcı" };
+            const coords = getElementScreenCoords(iframe);
+            return {
+              status: "success",
+              element: "Video Oynatıcı",
+              click_screen: true,
+              screen_x: coords ? coords.x : null,
+              screen_y: coords ? coords.y : null
+            };
           }
         }
       } catch (_) {}
 
       // Scroll, focus, and click iframe container in parent frame
       simulateUserClick(iframe);
-      return { status: "success", element: "Video Oynatıcı" };
+      const coords = getElementScreenCoords(iframe);
+      return {
+        status: "success",
+        element: "Video Oynatıcı",
+        click_screen: true,
+        screen_x: coords ? coords.x : null,
+        screen_y: coords ? coords.y : null
+      };
     }
   }
 
@@ -493,7 +545,14 @@ function findAndPlayVideo() {
   for (const c of containers) {
     if (isElementVisible(c)) {
       simulateUserClick(c);
-      return { status: "success", element: "Video Alanı" };
+      const coords = getElementScreenCoords(c);
+      return {
+        status: "success",
+        element: "Video Oynatıcı",
+        click_screen: true,
+        screen_x: coords ? coords.x : null,
+        screen_y: coords ? coords.y : null
+      };
     }
   }
 

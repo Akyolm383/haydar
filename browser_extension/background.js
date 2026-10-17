@@ -145,7 +145,13 @@ async function executeUniversalVideoPlay(tabId) {
       const res = await chrome.tabs.sendMessage(tabId, { action: "play_video" }, { frameId: fId });
       if (res && res.status === "success") {
         console.log("[Haydar Background] Video playback triggered via content script in frameId:", fId);
-        return { status: "success", element: res.element || "Video Oynatıcı" };
+        return {
+          status: "success",
+          element: res.element || "Video Oynatıcı",
+          click_screen: res.click_screen,
+          screen_x: res.screen_x,
+          screen_y: res.screen_y
+        };
       }
     } catch (_) {}
   }
@@ -352,7 +358,10 @@ async function handleCommand(cmd) {
         return {
           id: msgId,
           status: "success",
-          element: videoResult.element || "Video Oynatıcı"
+          element: videoResult.element || "Video Oynatıcı",
+          click_screen: videoResult.click_screen,
+          screen_x: videoResult.screen_x,
+          screen_y: videoResult.screen_y
         };
       }
     }
@@ -365,7 +374,14 @@ async function handleCommand(cmd) {
       if (cmd.action === "play_video" && (!tabResponse || tabResponse.status !== "success")) {
         const retryVideo = await executeUniversalVideoPlay(activeTab.id);
         if (retryVideo && retryVideo.status === "success") {
-          return { id: msgId, status: "success", element: retryVideo.element || "Video Oynatıcı" };
+          return {
+            id: msgId,
+            status: "success",
+            element: retryVideo.element || "Video Oynatıcı",
+            click_screen: retryVideo.click_screen,
+            screen_x: retryVideo.screen_x,
+            screen_y: retryVideo.screen_y
+          };
         }
       }
 
