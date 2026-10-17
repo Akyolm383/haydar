@@ -54,6 +54,10 @@ class VoiceWorkerThread(QThread):
         self.signals = signals
         self.running = True
 
+        # Continuous active listening toggle state
+        self.default_wake_word_enabled = matcher.wake_word_enabled
+        self.continuous_listening = False
+
         # Two-stage wake state for Haydar ("Haydar" -> "Efendim? Dinliyorum...")
         self.is_haydar_awake = False
         self.haydar_awake_timestamp = 0.0
@@ -142,6 +146,19 @@ class VoiceWorkerThread(QThread):
 
                 if match_res.matched and match_res.command:
                     cmd = match_res.command
+
+                    if cmd.get("action_type") == "toggle_listen_on":
+                        self.continuous_listening = True
+                        self.matcher.wake_word_enabled = False
+                        self.signals.sig_continuous_toggled.emit(True)
+                        continue
+
+                    if cmd.get("action_type") == "toggle_listen_off":
+                        self.continuous_listening = False
+                        self.matcher.wake_word_enabled = self.default_wake_word_enabled
+                        self.signals.sig_continuous_toggled.emit(False)
+                        continue
+
                     if cmd.get("id") == "switch_window_mode":
                         self.is_window_switch_active = True
                         self.window_switch_timestamp = time.time()
@@ -245,6 +262,20 @@ class VoiceWorkerThread(QThread):
             if match_result.matched and match_result.command:
                 cmd = match_result.command
 
+                if cmd.get("action_type") == "toggle_listen_on":
+                    self.continuous_listening = True
+                    self.matcher.wake_word_enabled = False
+                    self.signals.sig_transcribed.emit(raw_text)
+                    self.signals.sig_continuous_toggled.emit(True)
+                    continue
+
+                if cmd.get("action_type") == "toggle_listen_off":
+                    self.continuous_listening = False
+                    self.matcher.wake_word_enabled = self.default_wake_word_enabled
+                    self.signals.sig_transcribed.emit(raw_text)
+                    self.signals.sig_continuous_toggled.emit(False)
+                    continue
+
                 # User said just "Haydar" -> Enter command listening mode
                 if cmd.get("id") == "wake_greeting":
                     self.is_haydar_awake = True
@@ -319,13 +350,21 @@ def run_interactive_simulation(matcher: CommandMatcher, executor: ActionExecutor
             ui.log_processing(text)
             result = matcher.find_match(text)
             if result.matched and result.command:
-                executor.execute(result.command)
+                cmd = result.command
+                if cmd.get("action_type") == "toggle_listen_on":
+                    matcher.wake_word_enabled = False
+                    console.print("[bold magenta]⚡ Sürekli dinleme modu açıldı (Wake word devre dışı)![/]")
+                elif cmd.get("action_type") == "toggle_listen_off":
+                    matcher.wake_word_enabled = True
+                    console.print("[bold yellow]🔒 Sürekli dinleme modu kapatıldı (Wake word: Haydar)![/]")
+
+                executor.execute(cmd)
                 ui.log_success(
-                    cmd_id=result.command.get("id", ""),
-                    desc=result.command.get("description", ""),
+                    cmd_id=cmd.get("id", ""),
+                    desc=cmd.get("description", ""),
                     trigger=result.matched_trigger,
                     score=result.score,
-                    keys=result.command.get("keys", []),
+                    keys=cmd.get("keys", []),
                 )
             else:
                 ui.log_unmatched(
@@ -406,14 +445,14 @@ def main():
     island_signals.sig_executed.connect(island.show_executed)
     island_signals.sig_unmatched.connect(island.show_unmatched)
     island_signals.sig_exit.connect(island.show_exit)
+    island_signals.sig_continuous_toggled.connect(island.show_continuous_mode)
 
     # Initialize microphone listener with amplitude monitoring
     try:
-        wake_enabled = settings.get("wake_word_enabled", True)
         listener = VoiceListener(
             language=settings.get("language", "tr-TR"),
             energy_threshold_adjustment=settings.get("energy_threshold_adjustment", True),
-            on_speech_start=lambda: island_signals.sig_speech_start.emit() if not wake_enabled else None,
+            on_speech_start=lambda: island_signals.sig_speech_start.emit() if not matcher.wake_word_enabled else None,
             on_audio_level=lambda lvl: island_signals.sig_audio_level.emit(lvl),
         )
 

@@ -60,6 +60,7 @@ class IslandSignals(QObject):
     sig_executed = pyqtSignal(str, list, float)  # desc, keys, score
     sig_unmatched = pyqtSignal(str, float)       # text, score
     sig_exit = pyqtSignal()
+    sig_continuous_toggled = pyqtSignal(bool)   # True = continuous ON, False = continuous OFF
 
 
 class AudioWaveVisualizer(QWidget):
@@ -137,6 +138,10 @@ class DynamicIsland(QWidget):
     THEME_ERROR_BORDER = QColor(239, 68, 68, 230)       # Glowing ruby red border
     THEME_ERROR_VIS = QColor(248, 113, 113)             # Fiery warning red visualizer
 
+    THEME_CONTINUOUS_BG = QColor(26, 12, 44, 252)        # Obsidian violet dark glass
+    THEME_CONTINUOUS_BORDER = QColor(168, 85, 247, 240)  # Glowing electric violet border
+    THEME_CONTINUOUS_VIS = QColor(192, 132, 252)         # Radiant neon violet visualizer
+
     def __init__(self):
         super().__init__()
 
@@ -149,6 +154,9 @@ class DynamicIsland(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+
+        # Continuous listening toggle state
+        self.is_continuous_mode = False
 
         # Island dimensions
         self.island_height = 44
@@ -397,11 +405,17 @@ class DynamicIsland(QWidget):
         self.pos_anim.start()
         self.is_visible_on_screen = False
 
-        # Reset stealth black theme for next invocation
-        self.bg_color = QColor(self.THEME_DEFAULT_BG)
-        self.border_color = QColor(self.THEME_DEFAULT_BORDER)
-        self.visualizer.set_color(QColor(self.THEME_DEFAULT_VIS))
-        self.border_width = 1.2
+        # Reset theme for next invocation
+        if self.is_continuous_mode:
+            self.bg_color = QColor(self.THEME_CONTINUOUS_BG)
+            self.border_color = QColor(self.THEME_CONTINUOUS_BORDER)
+            self.visualizer.set_color(QColor(self.THEME_CONTINUOUS_VIS))
+            self.border_width = 1.4
+        else:
+            self.bg_color = QColor(self.THEME_DEFAULT_BG)
+            self.border_color = QColor(self.THEME_DEFAULT_BORDER)
+            self.visualizer.set_color(QColor(self.THEME_DEFAULT_VIS))
+            self.border_width = 1.2
 
     def handle_audio_level(self, level: float):
         """Updates the live audio waveform."""
@@ -410,21 +424,84 @@ class DynamicIsland(QWidget):
 
     # ---------------- State handlers ----------------
 
+    def show_continuous_mode(self, enabled: bool):
+        """Triggered when continuous listening toggle is switched ON or OFF."""
+        self.is_continuous_mode = enabled
+        if enabled:
+            self.morph_theme(
+                self.THEME_CONTINUOUS_BG,
+                self.THEME_CONTINUOUS_BORDER,
+                self.THEME_CONTINUOUS_VIS,
+                border_width=1.8,
+                duration=280,
+            )
+            self.icon_label.setText("⚡")
+            self.text_label.setText("Sürekli dinleme aktif")
+            self.text_label.setStyleSheet("color: #FFFFFF; background: transparent;")
+            self.badge_label.setText("[ Sürekli Dinleme ]")
+            self.badge_label.setStyleSheet(
+                "background: rgba(168, 85, 247, 0.25); color: #C084FC; font-weight: bold; border-radius: 6px; padding: 3px 8px; border: 1px solid rgba(168, 85, 247, 0.4);"
+            )
+            self.badge_label.show()
+            self.morph_width(340)
+            if not self.is_visible_on_screen:
+                self.slide_down()
+            self.update()
+            # Informative notification for 2.4s
+            self.hide_timer.start(2400)
+        else:
+            self.morph_theme(
+                QColor(15, 17, 23, 252),
+                QColor(245, 158, 11, 230),
+                QColor(245, 158, 11),
+                border_width=1.6,
+                duration=260,
+            )
+            self.icon_label.setText("🔒")
+            self.text_label.setText("Sürekli dinleme kapatıldı")
+            self.text_label.setStyleSheet("color: #FFFFFF; background: transparent;")
+            self.badge_label.setText("[ Wake Word: Haydar ]")
+            self.badge_label.setStyleSheet(
+                "background: rgba(245, 158, 11, 0.2); color: #FBBF24; font-weight: bold; border-radius: 6px; padding: 3px 8px; border: 1px solid rgba(245, 158, 11, 0.35);"
+            )
+            self.badge_label.show()
+            self.morph_width(370)
+            if not self.is_visible_on_screen:
+                self.slide_down()
+            self.update()
+            # Auto-retract after 2.0s
+            self.hide_timer.start(2000)
+
     def show_listening(self):
         """Triggered when speech starts or waiting for speech in standby."""
-        self.bg_color = QColor(self.THEME_DEFAULT_BG)
-        self.border_color = QColor(self.THEME_DEFAULT_BORDER)
-        self.border_width = 1.2
-        self.visualizer.set_color(QColor(self.THEME_DEFAULT_VIS))
-
-        self.icon_label.setText("🎙️")
-        self.text_label.setText("Dinleniyor...")
-        self.text_label.setStyleSheet("color: #F3F4F6; background: transparent;")
-        self.badge_label.hide()
-
-        self.morph_width(260)
-        self.slide_down()
-        self.update()
+        if self.is_continuous_mode:
+            self.bg_color = QColor(self.THEME_CONTINUOUS_BG)
+            self.border_color = QColor(self.THEME_CONTINUOUS_BORDER)
+            self.border_width = 1.4
+            self.visualizer.set_color(QColor(self.THEME_CONTINUOUS_VIS))
+            self.icon_label.setText("⚡")
+            self.text_label.setText("Dinleniyor...")
+            self.text_label.setStyleSheet("color: #F3F4F6; background: transparent;")
+            self.badge_label.setText("[ Sürekli ]")
+            self.badge_label.setStyleSheet(
+                "background: rgba(168, 85, 247, 0.25); color: #C084FC; font-weight: bold; border-radius: 6px; padding: 3px 8px; border: 1px solid rgba(168, 85, 247, 0.4);"
+            )
+            self.badge_label.show()
+            self.morph_width(290)
+            self.slide_down()
+            self.update()
+        else:
+            self.bg_color = QColor(self.THEME_DEFAULT_BG)
+            self.border_color = QColor(self.THEME_DEFAULT_BORDER)
+            self.border_width = 1.2
+            self.visualizer.set_color(QColor(self.THEME_DEFAULT_VIS))
+            self.icon_label.setText("🎙️")
+            self.text_label.setText("Dinleniyor...")
+            self.text_label.setStyleSheet("color: #F3F4F6; background: transparent;")
+            self.badge_label.hide()
+            self.morph_width(260)
+            self.slide_down()
+            self.update()
 
     def show_waiting_for_command(self):
         """Triggered when user says just 'Haydar' - enters matte stealth obsidian black!"""

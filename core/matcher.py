@@ -201,6 +201,29 @@ class CommandMatcher:
         if any(normalized.startswith(p) for p in direct_prefixes):
             return normalized, True
 
+        # Direct continuous listening toggle triggers (work directly or with 'haydar')
+        direct_toggle_phrases = (
+            "dinle",
+            "sürekli dinle",
+            "surekli dinle",
+            "aktif dinle",
+            "beni dinle",
+            "dinleme",
+            "dinlemeyi durdur",
+            "dinlemeyi bırak",
+            "dinlemeyi birak",
+            "dinlemeyi kes",
+            "sürekli dinlemeyi aç",
+            "surekli dinlemeyi ac",
+            "sürekli dinlemeyi kapat",
+            "surekli dinlemeyi kapat",
+            "dinleme modunu aç",
+            "dinleme modunu ac",
+            "dinleme modunu kapat",
+        )
+        if normalized in direct_toggle_phrases:
+            return normalized, True
+
         # Check if wake word is present
         # e.g., 'haydar masaüstüne dön' or 'hey haydar videoyu durdur'
         wake_idx = -1

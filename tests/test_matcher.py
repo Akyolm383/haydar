@@ -248,5 +248,54 @@ def test_browser_commands(actual_config):
     assert res6.command["id"] == "browser_scroll_up"
 
 
+def test_continuous_listening_toggle_activation(actual_config):
+    """Tests toggling continuous listening on and off with and without wake word."""
+    matcher = CommandMatcher(actual_config)
+    assert matcher.wake_word_enabled is True
+
+    # 1. Enable continuous listening with wake word: "Haydar dinle"
+    res_on = matcher.find_match("haydar dinle")
+    assert res_on.matched is True
+    assert res_on.command["id"] == "enable_continuous_listening"
+    assert res_on.command["action_type"] == "toggle_listen_on"
+
+    # 2. Enable continuous listening with "Haydar sürekli dinle"
+    res_on2 = matcher.find_match("haydar sürekli dinle")
+    assert res_on2.matched is True
+    assert res_on2.command["id"] == "enable_continuous_listening"
+
+    # 3. Direct trigger: "dinle" and "sürekli dinle" without Haydar
+    res_on3 = matcher.find_match("dinle")
+    assert res_on3.matched is True
+    assert res_on3.command["id"] == "enable_continuous_listening"
+
+    res_on4 = matcher.find_match("sürekli dinle")
+    assert res_on4.matched is True
+    assert res_on4.command["id"] == "enable_continuous_listening"
+
+    # 4. Disable continuous listening with wake word: "Haydar dinleme"
+    res_off = matcher.find_match("haydar dinleme")
+    assert res_off.matched is True
+    assert res_off.command["id"] == "disable_continuous_listening"
+    assert res_off.command["action_type"] == "toggle_listen_off"
+
+    # 5. Direct trigger: "dinleme" without Haydar
+    res_off2 = matcher.find_match("dinleme")
+    assert res_off2.matched is True
+    assert res_off2.command["id"] == "disable_continuous_listening"
+
+    # 6. In continuous mode: commands work without Haydar, and 'dinleme' switches it off
+    matcher.wake_word_enabled = False
+
+    res_cmd = matcher.find_match("sesi aç")
+    assert res_cmd.matched is True
+    assert res_cmd.command["id"] == "volume_up"
+
+    res_stop = matcher.find_match("dinlemeyi durdur")
+    assert res_stop.matched is True
+    assert res_stop.command["id"] == "disable_continuous_listening"
+
+
+
 
 

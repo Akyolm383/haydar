@@ -15,7 +15,18 @@ def test_commands_json_structure():
     assert isinstance(data["commands"], list)
     assert len(data["commands"]) > 0
 
-    valid_actions = {"hotkey", "press", "write", "run", "open", "exit", "window_switcher", "browser"}
+    valid_actions = {
+        "hotkey",
+        "press",
+        "write",
+        "run",
+        "open",
+        "exit",
+        "window_switcher",
+        "browser",
+        "toggle_listen_on",
+        "toggle_listen_off",
+    }
 
     for cmd in data["commands"]:
         assert "id" in cmd, f"Missing id in command: {cmd}"

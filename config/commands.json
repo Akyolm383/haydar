@@ -637,6 +637,38 @@
       "threshold": 70
     },
     {
+      "id": "enable_continuous_listening",
+      "description": "Sürekli aktif dinleme modunu açar",
+      "triggers": [
+        "dinle",
+        "sürekli dinle",
+        "beni dinle",
+        "dinlemeye başla",
+        "aktif dinle",
+        "dinle beni",
+        "sürekli dinlemeyi aç",
+        "dinleme modunu aç"
+      ],
+      "action_type": "toggle_listen_on",
+      "threshold": 75
+    },
+    {
+      "id": "disable_continuous_listening",
+      "description": "Sürekli dinleme modunu kapatıp normal moda döner",
+      "triggers": [
+        "dinleme",
+        "dinlemeyi durdur",
+        "dinlemeyi bırak",
+        "dinlemeyi kes",
+        "beni dinleme",
+        "sürekli dinlemeyi kapat",
+        "dinleme modunu kapat",
+        "dinlemeyi kapat"
+      ],
+      "action_type": "toggle_listen_off",
+      "threshold": 75
+    },
+    {
       "id": "exit_haydar",
       "description": "Haydar uygulamasını kapatır",
       "triggers": [

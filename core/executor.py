@@ -63,6 +63,10 @@ class ActionExecutor:
                 if hasattr(self, "on_exit_callback") and self.on_exit_callback:
                     self.on_exit_callback()
                 return True
+            elif action_type in ("toggle_listen_on", "toggle_listen_off"):
+                self.last_execution_time = time.time()
+                self.last_command_id = cmd_id
+                return True
             elif action_type == "none":
                 return True
             else:

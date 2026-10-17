@@ -6,13 +6,13 @@
   <img src="https://img.shields.io/badge/UI-PyQt6%20Dynamic%20Island-41CD52?style=for-the-badge&logo=qt&logoColor=white" alt="PyQt6" />
   <img src="https://img.shields.io/badge/NLP-RapidFuzz%20%2B%20TR%20Norm-FF6F00?style=for-the-badge" alt="RapidFuzz" />
   <img src="https://img.shields.io/badge/Web_Bridge-Manifest%20V3-00B4D8?style=for-the-badge" alt="Web Bridge" />
-  <img src="https://img.shields.io/badge/Tests-11%20Passed-brightgreen?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-12%20Passed-brightgreen?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License" />
 </p>
 
 **Haydar**, mikrofonunuzdan gelen Türkçe konuşmaları anlık olarak metne dönüştüren, gelişmiş Türkçe metin normalizasyonu ve **RapidFuzz** benzerlik algoritmasıyla komutları eşleştiren, Windows üzerinde klavye/fare kısayollarını ve tarayıcı DOM eylemlerini otonom gerçekleştiren modern bir masaüstü asistanıdır.
 
-Apple'ın Dynamic Island konseptinden ilham alan şık, donanım ivmeli **PyQt6 arayüzü**, canlı ses dalgaları, durum rozetleri, akıllı Alt+Tab pencere seçicisi ve **yerleşik tarayıcı eklentisi (Web Bridge)** ile tamamen kullanıcı dostudur.
+Apple'ın Dynamic Island konseptinden ilham alan şık, donanım ivmeli **PyQt6 arayüzü**, canlı ses dalgaları, durum rozetleri, akıllı Alt+Tab pencere seçicisi, kesintisiz **Sürekli Dinleme (Toggle)** modu ve **yerleşik tarayıcı eklentisi (Web Bridge)** ile tamamen kullanıcı dostudur.
 
 ---
 
@@ -24,7 +24,15 @@ Apple'ın Dynamic Island konseptinden ilham alan şık, donanım ivmeli **PyQt6 
   - *"Haydar"* dediğinizde ada ekranın tepesinden süzülerek iner, **"👋 Efendim? Dinliyorum..."** der ve **7 saniye boyunca** vereceğiniz komutu bekler.
   - Veya doğrudan tek nefeste komut verebilirsiniz: *"Haydar video dursun"*, *"Haydar sonraki bölüm"*, *"Haydar 15 saniye ileri sar"*.
 
-### 🌐 2. Haydar Web Bridge - Akıllı Tarayıcı Kontrolü (Yeni!)
+### ⚡ 2. Sürekli Dinleme Toggle Modu ("Haydar dinle" / "Haydar dinleme") (Yeni!)
+- **"Haydar dinle" (veya "dinle", "sürekli dinle"):** Haydar kesintisiz dinleme moduna geçer.
+  - Dinamik Ada göz alıcı **elektrik moru (Electric Violet)** temaya bürünür ve **`[ Sürekli Dinleme ]`** rozetini gösterir.
+  - Bu modda her komutun başında *"Haydar"* demenize gerek kalmaz! Arka arkaya *"sesi aç"*, *"sonraki bölüm"*, *"videoyu durdur"*, *"pencere değiştir"* diyebilirsiniz.
+  - Haydar komutları icra ettikten sonra uykuya dalmaz, sürekli dinlemeye devam eder.
+- **"Haydar dinleme" (veya "dinleme", "dinlemeyi durdur"):**
+  - Sürekli dinleme modunu kapatır ve Dinamik Ada kehribar uyarısıyla **`[ Wake Word: Haydar ]`** normal moduna döner.
+
+### 🌐 3. Haydar Web Bridge - Akıllı Tarayıcı Kontrolü
 - **Yerel WebSocket Köprüsü:** Haydar, arka planda güvenli ve hafif bir `ws://127.0.0.1:8765` sunucusu çalıştırır. Tarayıcı eklentisi doğrudan bağlanır.
 - **Dizilerde & Videolarda Otomasyon:**
   - *"Haydar sonraki bölüm"* (veya *"sıradaki bölüm"*): YouTube, Netflix, yerli/yabancı dizi ve anime sitelerindeki "Sonraki Bölüm" butonunu anında bulup tıklar!
@@ -68,6 +76,8 @@ Apple'ın Dynamic Island konseptinden ilham alan şık, donanım ivmeli **PyQt6 
 
 | Kategori | Sesli Komut Örnekleri | Çalıştırılan Eylem | Karşılık / Rozet |
 | :--- | :--- | :--- | :--- |
+| **Sürekli Dinleme (Toggle)** | *"Haydar dinle"*, *"sürekli dinle"*, *"dinle"* | Sürekli aktif dinlemeyi açar (Wake-word gereksizleşir) | `[ Sürekli Dinleme ]` |
+| | *"Haydar dinleme"*, *"dinleme"*, *"dinlemeyi durdur"* | Sürekli dinlemeyi kapatır, Wake-word moduna döner | `[ Wake Word: Haydar ]` |
 | **Tarayıcı & Web Bridge** | *"Haydar sonraki bölüm"*, *"sıradaki bölüm"* | Dizide/videoda sonraki bölüme geçer | `[ Web Extension ]` |
 | | *"Haydar önceki bölüm"*, *"bir önceki bölüm"* | Önceki bölüme geçer | `[ Web Extension ]` |
 | | *"Haydar introyu atla"*, *"jeneriği atla"* | Video introsunu / jeneriğini atlar | `[ Web Extension ]` |
