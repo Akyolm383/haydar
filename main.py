@@ -184,6 +184,29 @@ class VoiceWorkerThread(QThread):
             match_result = self.matcher.find_match(raw_text)
             processed_text, wake_detected = self.matcher.extract_command_text(raw_text)
 
+            # Direct video browser commands (works with 'Haydar sonraki bölüm' or simply 'sonraki bölüm'):
+            norm_raw = normalize_turkish(raw_text)
+            if any(norm_raw.startswith(k) for k in ["sonraki bölüm", "sonraki bolum", "önceki bölüm", "onceki bolum", "introyu atla", "reklamı geç"]):
+                orig_wake_setting = self.matcher.wake_word_enabled
+                self.matcher.wake_word_enabled = False
+                direct_match = self.matcher.find_match(raw_text)
+                self.matcher.wake_word_enabled = orig_wake_setting
+                if direct_match.matched and direct_match.command and direct_match.command.get("action_type") == "browser":
+                    self.signals.sig_transcribed.emit(raw_text)
+                    b_res = self.executor.execute_browser_action(direct_match.command)
+                    if b_res.get("status") == "success":
+                        elem = b_res.get("element") or direct_match.command.get("description", "")
+                        self.signals.sig_executed.emit(
+                            f"'{elem}' tıklandı" if direct_match.command.get("browser_action") == "click_button" else elem,
+                            ["Web Extension"],
+                            100.0,
+                        )
+                    elif b_res.get("status") == "no_extension":
+                        self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
+                    else:
+                        self.signals.sig_unmatched.emit(f"'{direct_match.command.get('target', 'Buton')}' bulunamadı", 0.0)
+                    continue
+
             # Direct single-shot window command: e.g. "haydar 5. pencere", "haydar 3. pencereye geç"
             if (wake_detected or not self.matcher.wake_word_enabled) and "pencere" in processed_text:
                 direct_num = extract_window_number(processed_text)

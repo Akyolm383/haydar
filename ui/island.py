@@ -559,7 +559,11 @@ class DynamicIsland(QWidget):
         )
 
         self.icon_label.setText("✕")
-        self.text_label.setText(f'"{raw_text}" (Anlaşılamadı)')
+        if any(term in raw_text.lower() for term in ["bulunamadı", "bağlı değil", "iptal", "hata"]):
+            display_str = raw_text
+        else:
+            display_str = f'"{raw_text}" (Anlaşılamadı)'
+        self.text_label.setText(display_str)
         self.text_label.setStyleSheet("color: #FCA5A5; background: transparent;")
         self.badge_label.hide()
 
