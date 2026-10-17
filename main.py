@@ -18,7 +18,13 @@ from PyQt6.QtWidgets import QApplication
 
 from core.executor import ActionExecutor
 from core.listener import VoiceListener
-from core.matcher import CommandMatcher, extract_window_number, normalize_turkish
+from core.matcher import (
+    CommandMatcher,
+    extract_browser_click_target,
+    extract_window_number,
+    normalize_turkish,
+)
+from core.web_bridge import web_bridge
 from ui.island import DynamicIsland, IslandSignals
 from utils.sound import SoundFeedback
 from utils.ui import HaydarUI, console
@@ -112,6 +118,23 @@ class VoiceWorkerThread(QThread):
                 self.is_haydar_awake = False
                 self.signals.sig_transcribed.emit(raw_text)
 
+                # Check dynamic click command first: e.g. "tıkla abone ol", "abone ol butonuna bas"
+                click_target = extract_browser_click_target(raw_text)
+                if click_target:
+                    resp = self.executor.browser_click_custom(click_target)
+                    if resp.get("status") == "success":
+                        elem_text = resp.get("element", click_target)
+                        self.signals.sig_executed.emit(
+                            f"'{elem_text}' tıklandı",
+                            ["Web Extension"],
+                            100.0,
+                        )
+                    elif resp.get("status") == "no_extension":
+                        self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
+                    else:
+                        self.signals.sig_unmatched.emit(f"'{click_target}' bulunamadı", 0.0)
+                    continue
+
                 orig_wake_setting = self.matcher.wake_word_enabled
                 self.matcher.wake_word_enabled = False
                 match_res = self.matcher.find_match(raw_text)
@@ -130,6 +153,21 @@ class VoiceWorkerThread(QThread):
                         self.signals.sig_exit.emit()
                         self.running = False
                         break
+
+                    if cmd.get("action_type") == "browser":
+                        browser_res = self.executor.execute_browser_action(cmd)
+                        if browser_res.get("status") == "success":
+                            elem_text = browser_res.get("element") or cmd.get("description", "")
+                            self.signals.sig_executed.emit(
+                                f"'{elem_text}' tıklandı" if cmd.get("browser_action") == "click_button" else elem_text,
+                                ["Web Extension"],
+                                match_res.score,
+                            )
+                        elif browser_res.get("status") == "no_extension":
+                            self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
+                        else:
+                            self.signals.sig_unmatched.emit(f"'{cmd.get('target', 'Buton')}' bulunamadı", 0.0)
+                        continue
 
                     executed = self.executor.execute(cmd)
                     if executed:
@@ -160,6 +198,25 @@ class VoiceWorkerThread(QThread):
                         )
                     continue
 
+            # Direct single-shot browser click: e.g. "haydar tıkla abone ol", "haydar sepete ekle butonuna bas"
+            if wake_detected or not self.matcher.wake_word_enabled:
+                click_target = extract_browser_click_target(processed_text)
+                if click_target:
+                    self.signals.sig_transcribed.emit(raw_text)
+                    resp = self.executor.browser_click_custom(click_target)
+                    if resp.get("status") == "success":
+                        elem_text = resp.get("element", click_target)
+                        self.signals.sig_executed.emit(
+                            f"'{elem_text}' tıklandı",
+                            ["Web Extension"],
+                            100.0,
+                        )
+                    elif resp.get("status") == "no_extension":
+                        self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
+                    else:
+                        self.signals.sig_unmatched.emit(f"'{click_target}' bulunamadı", 0.0)
+                    continue
+
             if match_result.matched and match_result.command:
                 cmd = match_result.command
 
@@ -177,6 +234,23 @@ class VoiceWorkerThread(QThread):
                     self.signals.sig_transcribed.emit(raw_text)
                     self.executor.open_window_switcher()
                     self.signals.sig_window_switch_mode.emit()
+                    continue
+
+                # Browser extension command
+                if cmd.get("action_type") == "browser":
+                    self.signals.sig_transcribed.emit(raw_text)
+                    browser_res = self.executor.execute_browser_action(cmd)
+                    if browser_res.get("status") == "success":
+                        elem_text = browser_res.get("element") or cmd.get("description", "")
+                        self.signals.sig_executed.emit(
+                            f"'{elem_text}' tıklandı" if cmd.get("browser_action") == "click_button" else elem_text,
+                            ["Web Extension"],
+                            match_result.score,
+                        )
+                    elif browser_res.get("status") == "no_extension":
+                        self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
+                    else:
+                        self.signals.sig_unmatched.emit(f"'{cmd.get('target', 'Buton')}' bulunamadı", 0.0)
                     continue
 
                 # User said standard command in one breath
@@ -324,12 +398,16 @@ def main():
         console.print(f"[bold red]Mikrofon başlatılamadı:[/] {e}")
         sys.exit(1)
 
+    # Start local Web Bridge for browser extension
+    web_bridge.start()
+
     # Start background voice thread
     voice_thread = VoiceWorkerThread(listener, matcher, executor, island_signals)
     voice_thread.start()
 
     # Handle clean exit
     def cleanup():
+        web_bridge.stop()
         voice_thread.stop()
         voice_thread.wait(1000)
 

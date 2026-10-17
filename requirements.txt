@@ -4,5 +4,7 @@ rapidfuzz>=3.9.0
 pyautogui>=0.9.54
 rich>=13.7.0
 PyQt6>=6.6.0
+websockets>=13.0
 pytest>=8.0.0
+
 

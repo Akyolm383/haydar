@@ -1,0 +1,23 @@
+/* Haydar Web Bridge - Element Highlight Effect */
+.haydar-highlight-pulse {
+  outline: 3px solid #10B981 !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 24px 6px rgba(16, 185, 129, 0.75) !important;
+  transition: all 0.25s ease-in-out !important;
+  animation: haydarPulseGlow 1.2s ease-in-out !important;
+}
+
+@keyframes haydarPulseGlow {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.85);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 28px 8px rgba(16, 185, 129, 0.95);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 10px 2px rgba(16, 185, 129, 0.4);
+  }
+}

@@ -79,6 +79,44 @@ def extract_window_number(text: str) -> Optional[int]:
     return None
 
 
+def extract_browser_click_target(text: str) -> Optional[str]:
+    """
+    Extracts custom button/link targets from natural Turkish speech.
+    Examples:
+      - 'tıkla abone ol' -> 'abone ol'
+      - 'abone ol butonuna tıkla' -> 'abone ol'
+      - 'sepete ekle butonuna bas' -> 'sepete ekle'
+      - 'tıkla sonraki sayfa' -> 'sonraki sayfa'
+    """
+    if not text:
+        return None
+    norm = normalize_turkish(text)
+
+    # 1. 'tıkla [hedef]' or 'tikla [hedef]'
+    m1 = re.match(r"^(?:tıkla|tikla|tıklarmısın|tıklar mısın)\s+(.+)$", norm)
+    if m1:
+        target = m1.group(1).strip()
+        target = re.sub(r"\s+(?:butonuna|butona|butonunu|linkine|linki|düğmesine)$", "", target).strip()
+        if len(target) >= 2:
+            return target
+
+    # 2. '[hedef] butonuna tıkla' / '[hedef] butonuna bas'
+    m2 = re.match(r"^(.+?)\s+(?:butonuna|butona|butonunu|düğmesine)\s+(?:tıkla|tikla|bas|basar mısın|tıklar mısın)$", norm)
+    if m2:
+        target = m2.group(1).strip()
+        if len(target) >= 2:
+            return target
+
+    # 3. '[hedef] tıkla'
+    m3 = re.match(r"^(.+?)\s+(?:tıkla|tikla)$", norm)
+    if m3:
+        target = m3.group(1).strip()
+        if len(target) >= 2 and target not in ("hemen", "şuraya", "buraya", "ekrana"):
+            return target
+
+    return None
+
+
 def normalize_turkish(text: str) -> str:
     """
     Turkish-aware text normalization.

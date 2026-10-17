@@ -206,4 +206,47 @@ def test_window_switcher_command(actual_config):
     assert res4.command["id"] == "switch_window_mode"
 
 
+def test_extract_browser_click_target():
+    from core.matcher import extract_browser_click_target
+
+    assert extract_browser_click_target("tıkla abone ol") == "abone ol"
+    assert extract_browser_click_target("abone ol butonuna tıkla") == "abone ol"
+    assert extract_browser_click_target("sepete ekle butonuna bas") == "sepete ekle"
+    assert extract_browser_click_target("tıkla sonraki sayfa") == "sonraki sayfa"
+    assert extract_browser_click_target("beğen butonuna tıkla") == "beğen"
+    assert extract_browser_click_target("başla tıkla") == "başla"
+    assert extract_browser_click_target("masaüstüne dön") is None
+    assert extract_browser_click_target("") is None
+
+
+def test_browser_commands(actual_config):
+    matcher = CommandMatcher(actual_config)
+
+    res1 = matcher.find_match("haydar sonraki bölüm")
+    assert res1.matched is True
+    assert res1.command["id"] == "browser_next_episode"
+    assert res1.command["action_type"] == "browser"
+
+    res2 = matcher.find_match("haydar önceki bölüm")
+    assert res2.matched is True
+    assert res2.command["id"] == "browser_prev_episode"
+
+    res3 = matcher.find_match("haydar introyu atla")
+    assert res3.matched is True
+    assert res3.command["id"] == "browser_skip_intro"
+
+    res4 = matcher.find_match("haydar reklamı geç")
+    assert res4.matched is True
+    assert res4.command["id"] == "browser_skip_ad"
+
+    res5 = matcher.find_match("haydar aşağı kaydır")
+    assert res5.matched is True
+    assert res5.command["id"] == "browser_scroll_down"
+
+    res6 = matcher.find_match("haydar yukarı kaydır")
+    assert res6.matched is True
+    assert res6.command["id"] == "browser_scroll_up"
+
+
+
 

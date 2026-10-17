@@ -542,6 +542,94 @@
       "threshold": 70
     },
     {
+      "id": "browser_next_episode",
+      "description": "Dizide/videoda sonraki bölüme geç",
+      "triggers": [
+        "sonraki bölüm",
+        "sonraki bölüme geç",
+        "sıradaki bölüm",
+        "diğer bölüm",
+        "sonraki part",
+        "sonraki video"
+      ],
+      "action_type": "browser",
+      "browser_action": "click_button",
+      "target": "sonraki bölüm",
+      "threshold": 70
+    },
+    {
+      "id": "browser_prev_episode",
+      "description": "Dizide/videoda önceki bölüme geç",
+      "triggers": [
+        "önceki bölüm",
+        "bir önceki bölüm",
+        "önceki bölüme geç",
+        "önceki part",
+        "önceki video"
+      ],
+      "action_type": "browser",
+      "browser_action": "click_button",
+      "target": "önceki bölüm",
+      "threshold": 70
+    },
+    {
+      "id": "browser_skip_intro",
+      "description": "Videodaki introyu atla",
+      "triggers": [
+        "introyu atla",
+        "jeneriği atla",
+        "başlangıcı atla",
+        "intro atla",
+        "jenerik atla",
+        "intro geç"
+      ],
+      "action_type": "browser",
+      "browser_action": "click_button",
+      "target": "introyu atla",
+      "threshold": 70
+    },
+    {
+      "id": "browser_skip_ad",
+      "description": "Videodaki reklamı geç",
+      "triggers": [
+        "reklamı geç",
+        "reklamı atla",
+        "reklam geç",
+        "reklam atla",
+        "reklamı kapat"
+      ],
+      "action_type": "browser",
+      "browser_action": "click_button",
+      "target": "reklamı geç",
+      "threshold": 70
+    },
+    {
+      "id": "browser_scroll_down",
+      "description": "Tarayıcı sayfasını aşağı kaydır",
+      "triggers": [
+        "aşağı kaydır",
+        "sayfayı aşağı kaydır",
+        "aşağı in",
+        "biraz aşağı kaydır"
+      ],
+      "action_type": "browser",
+      "browser_action": "scroll_down",
+      "threshold": 70
+    },
+    {
+      "id": "browser_scroll_up",
+      "description": "Tarayıcı sayfasını yukarı kaydır",
+      "triggers": [
+        "yukarı kaydır",
+        "sayfayı yukarı kaydır",
+        "yukarı çık",
+        "biraz yukarı kaydır"
+      ],
+      "action_type": "browser",
+      "browser_action": "scroll_up",
+      "threshold": 70
+    },
+    {
       "id": "exit_haydar",
       "description": "Haydar uygulamasını kapatır",
       "triggers": [

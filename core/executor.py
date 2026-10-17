@@ -4,6 +4,8 @@ import time
 from typing import Any, Dict, List, Optional
 import pyautogui
 
+from core.web_bridge import web_bridge
+
 # Disable PyAutoGUI corner failsafe so parked cursor in full-screen doesn't abort voice commands
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0.05
@@ -52,6 +54,11 @@ class ActionExecutor:
                     os.startfile(target)
             elif action_type == "window_switcher":
                 return self.open_window_switcher()
+            elif action_type == "browser":
+                result = self.execute_browser_action(command)
+                self.last_execution_time = time.time()
+                self.last_command_id = cmd_id
+                return result.get("status") == "success"
             elif action_type == "exit":
                 if hasattr(self, "on_exit_callback") and self.on_exit_callback:
                     self.on_exit_callback()
@@ -113,6 +120,22 @@ class ActionExecutor:
             except Exception:
                 pass
             return False
+
+    def execute_browser_action(self, command: Dict[str, Any]) -> Dict[str, Any]:
+        """Dispatches browser DOM automation command to Haydar Web Bridge."""
+        browser_action = command.get("browser_action", "click_button")
+        target = command.get("target", "")
+        params = command.get("params", {})
+        return web_bridge.send_command(action=browser_action, target=target, params=params)
+
+    def browser_click_custom(self, target: str) -> Dict[str, Any]:
+        """Clicks a dynamically extracted target text in active browser tab."""
+        return web_bridge.send_command(action="click_button", target=target)
+
+    def browser_scroll(self, direction: str = "down") -> Dict[str, Any]:
+        """Scrolls active browser tab up or down."""
+        action = "scroll_down" if direction == "down" else "scroll_up"
+        return web_bridge.send_command(action=action)
 
     def _execute_hotkey(self, keys: List[str]):
         """Executes a hotkey sequence."""
