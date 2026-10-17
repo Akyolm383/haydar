@@ -4,6 +4,26 @@ import random
 import sys
 from typing import List, Optional
 
+if sys.platform == "win32":
+    import ctypes
+    from ctypes import wintypes
+    try:
+        user32 = ctypes.windll.user32
+        user32.SetWindowPos.argtypes = [
+            wintypes.HWND,
+            wintypes.HWND,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_uint,
+        ]
+        user32.SetWindowPos.restype = wintypes.BOOL
+    except Exception:
+        user32 = None
+else:
+    user32 = None
+
 from PyQt6.QtCore import (
     QEasingCurve,
     QObject,
@@ -154,15 +174,16 @@ class DynamicIsland(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_AlwaysStackOnTop, True)
 
         # Continuous listening toggle state
         self.is_continuous_mode = False
 
-        # Island dimensions
+        # Island dimensions & relative offsets
         self.island_height = 44
         self.current_width = 280
-        self.target_y = 12
-        self.hidden_y = -85
+        self.target_y_offset = 12
+        self.hidden_y_offset = -85
 
         # Visual styling
         self.bg_color = QColor(self.THEME_DEFAULT_BG)
@@ -188,12 +209,13 @@ class DynamicIsland(QWidget):
         self.width_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.width_anim.valueChanged.connect(self._on_width_step)
 
-        # Screen geometry
-        self.screen_geo = QApplication.primaryScreen().geometry()
-        init_x = (self.screen_geo.width() - self.current_width) // 2
+        # Screen geometry (dynamically adapts to active monitor where cursor is)
+        self.screen_geo = self.get_target_screen_geometry()
+        init_x = self.screen_geo.x() + (self.screen_geo.width() - self.current_width) // 2
+        init_y = self.screen_geo.y() + self.hidden_y_offset
 
         # Start hidden above top bezel
-        self.setGeometry(init_x, self.hidden_y, self.current_width, self.island_height)
+        self.setGeometry(init_x, init_y, self.current_width, self.island_height)
 
         # UI elements layout
         self._init_layout()
@@ -201,11 +223,18 @@ class DynamicIsland(QWidget):
         # Position slide animation
         self.pos_anim = QPropertyAnimation(self, b"pos")
         self.pos_anim.setDuration(280)
+        self.pos_anim.finished.connect(self.force_on_top)
 
         # Auto-hide timer
         self.hide_timer = QTimer(self)
         self.hide_timer.setSingleShot(True)
         self.hide_timer.timeout.connect(self.slide_up)
+
+        # Periodic topmost watchdog timer (keeps island above fullscreen apps)
+        self.topmost_watchdog = QTimer(self)
+        self.topmost_watchdog.setInterval(500)
+        self.topmost_watchdog.timeout.connect(self._enforce_topmost_if_visible)
+        self.topmost_watchdog.start()
 
         # Tray icon
         self._init_tray_icon()
@@ -374,22 +403,76 @@ class DynamicIsland(QWidget):
         self.width_anim.setEndValue(float(target_width))
         self.width_anim.start()
 
+    @property
+    def target_y(self) -> int:
+        return self.screen_geo.y() + self.target_y_offset
+
+    @property
+    def hidden_y(self) -> int:
+        return self.screen_geo.y() + self.hidden_y_offset
+
+    def get_target_screen_geometry(self) -> QRect:
+        """
+        Returns geometry of active screen (where mouse cursor is located),
+        or primary screen as fallback.
+        """
+        try:
+            from PyQt6.QtGui import QCursor
+            cursor_pos = QCursor.pos()
+            screen = QApplication.screenAt(cursor_pos)
+            if screen:
+                return screen.geometry()
+        except Exception:
+            pass
+        primary = QApplication.primaryScreen()
+        return primary.geometry() if primary else QRect(0, 0, 1920, 1080)
+
+    def force_on_top(self):
+        """Forces the window to the very top of Windows Z-order above fullscreen apps."""
+        if sys.platform == "win32" and user32 is not None:
+            try:
+                hwnd = wintypes.HWND(int(self.winId()))
+                HWND_TOPMOST = wintypes.HWND(-1)
+                SWP_NOSIZE = 0x0001
+                SWP_NOMOVE = 0x0002
+                SWP_NOACTIVATE = 0x0010
+                SWP_SHOWWINDOW = 0x0040
+
+                user32.SetWindowPos(
+                    hwnd,
+                    HWND_TOPMOST,
+                    0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                )
+            except Exception:
+                pass
+
+        self.raise_()
+
+    def _enforce_topmost_if_visible(self):
+        if self.is_visible_on_screen:
+            self.force_on_top()
+
     def _on_width_step(self, val):
         self.current_width = int(val)
-        cx = (self.screen_geo.width() - self.current_width) // 2
+        cx = self.screen_geo.x() + (self.screen_geo.width() - self.current_width) // 2
         self.setGeometry(cx, self.y(), self.current_width, self.island_height)
         self.update()
 
     def slide_down(self):
         """Slides the island down from top bezel into view with subtle tactile bounce."""
         self.hide_timer.stop()
-        cx = (self.screen_geo.width() - self.current_width) // 2
+        geo = self.get_target_screen_geometry()
+        self.screen_geo = geo
+        cx = geo.x() + (geo.width() - self.current_width) // 2
+        target_y = geo.y() + self.target_y_offset
 
         self.pos_anim.stop()
         self.pos_anim.setEasingCurve(QEasingCurve.Type.OutBack)
         self.pos_anim.setStartValue(self.pos())
-        self.pos_anim.setEndValue(QPoint(cx, self.target_y))
+        self.pos_anim.setEndValue(QPoint(cx, target_y))
         self.show()
+        self.force_on_top()
         self.pos_anim.start()
         self.is_visible_on_screen = True
 
@@ -400,12 +483,13 @@ class DynamicIsland(QWidget):
             self.show_continuous_standby()
             return
 
-        cx = (self.screen_geo.width() - self.current_width) // 2
+        cx = self.screen_geo.x() + (self.screen_geo.width() - self.current_width) // 2
+        hidden_y = self.screen_geo.y() + self.hidden_y_offset
 
         self.pos_anim.stop()
         self.pos_anim.setEasingCurve(QEasingCurve.Type.InCubic)
         self.pos_anim.setStartValue(self.pos())
-        self.pos_anim.setEndValue(QPoint(cx, self.hidden_y))
+        self.pos_anim.setEndValue(QPoint(cx, hidden_y))
         self.pos_anim.start()
         self.is_visible_on_screen = False
 
@@ -537,6 +621,8 @@ class DynamicIsland(QWidget):
         self.morph_width(280)
         if not self.is_visible_on_screen:
             self.slide_down()
+        else:
+            self.force_on_top()
         self.update()
 
         # Generous 6-second window before auto-retracting
@@ -561,6 +647,8 @@ class DynamicIsland(QWidget):
         self.morph_width(380)
         if not self.is_visible_on_screen:
             self.slide_down()
+        else:
+            self.force_on_top()
         self.update()
 
         # Generous 8-second window for user to look at windows and say number
@@ -583,6 +671,8 @@ class DynamicIsland(QWidget):
         self.morph_width(needed_width)
         if not self.is_visible_on_screen:
             self.slide_down()
+        else:
+            self.force_on_top()
         self.update()
 
         # Safety auto-retract if processing hangs or takes too long
@@ -640,6 +730,8 @@ class DynamicIsland(QWidget):
         self.morph_width(needed_width)
         if not self.is_visible_on_screen:
             self.slide_down()
+        else:
+            self.force_on_top()
 
         # Disappear after 1.8 seconds of glory
         self.hide_timer.start(1800)
@@ -678,6 +770,8 @@ class DynamicIsland(QWidget):
         self.morph_width(needed_width)
         if not self.is_visible_on_screen:
             self.slide_down()
+        else:
+            self.force_on_top()
 
         # Disappear after 1.6 seconds
         self.hide_timer.start(1600)
