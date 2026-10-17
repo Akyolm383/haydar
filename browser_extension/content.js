@@ -17,11 +17,12 @@ function normalizeTr(text) {
 function isElementVisible(el) {
   if (!el) return false;
   const style = window.getComputedStyle(el);
-  if (style.display === "none" || style.visibility === "hidden" || parseFloat(style.opacity) === 0) {
+  if (style.display === "none" || style.visibility === "hidden") {
     return false;
   }
+  // Video player controls often have opacity: 0 when autohidden; don't reject on opacity
   const rect = el.getBoundingClientRect();
-  return rect.width > 0 && rect.height > 0;
+  return (rect.width > 0 && rect.height > 0) || el.offsetWidth > 0 || el.offsetHeight > 0;
 }
 
 // Known platform-specific selector maps
@@ -103,8 +104,8 @@ const PLATFORM_SELECTORS = {
 
 const SYNONYM_MAP = {
   "sonraki bölüm": [
-    "sonraki bölüm", "sonraki bolum", "sonraki", "sıradaki bölüm", "siradaki bolum",
-    "sıradaki", "next episode", "next", "sonraki part", "ileri"
+    "sonraki bölüm", "sonraki bolum", "sonraki", "next", "next episode", "next video",
+    "sonraki video", "sıradaki bölüm", "siradaki bolum", "sıradaki", "sonraki part", "ileri"
   ],
   "önceki bölüm": [
     "önceki bölüm", "önceki bolum", "onceki bölüm", "onceki bolum", "önceki", "onceki",
@@ -134,7 +135,43 @@ function findTargetButton(targetPhrase) {
   const normTarget = normalizeTr(targetPhrase);
   const synonyms = getSearchSynonyms(targetPhrase);
 
-  // 1. Check known platform selectors first
+  // 1. YouTube specific fast path
+  if (window.location.hostname.includes("youtube.com")) {
+    const isNext = normTarget.includes("sonraki") || normTarget.includes("next") || normTarget.includes("bolum") || normTarget.includes("video");
+    const isPrev = normTarget.includes("onceki") || normTarget.includes("prev");
+    const isSkipAd = normTarget.includes("reklam") || normTarget.includes("ad");
+
+    if (isNext) {
+      // YouTube player next video button
+      const ytNext = document.querySelector(".ytp-next-button, a.ytp-next-button");
+      if (ytNext) {
+        return { element: ytNext, label: "Sonraki Video", isYouTube: true };
+      }
+      // If player control not available, first Up Next recommended video in sidebar
+      const firstUpNext = document.querySelector(
+        "ytd-watch-next-secondary-results-renderer #items ytd-compact-video-renderer a#thumbnail, #secondary #items ytd-compact-video-renderer a#thumbnail"
+      );
+      if (firstUpNext) {
+        return { element: firstUpNext, label: "Sıradaki Video", isYouTube: true };
+      }
+    }
+
+    if (isPrev) {
+      const ytPrev = document.querySelector(".ytp-prev-button, a.ytp-prev-button");
+      if (ytPrev) {
+        return { element: ytPrev, label: "Önceki Video", isYouTube: true };
+      }
+    }
+
+    if (isSkipAd) {
+      const skipBtn = document.querySelector(".ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, .videoAdUiSkipButton");
+      if (skipBtn) {
+        return { element: skipBtn, label: "Reklamı Geç", isYouTube: true };
+      }
+    }
+  }
+
+  // 2. Check known platform selectors for Netflix, Anime, Series sites
   for (const [key, selectors] of Object.entries(PLATFORM_SELECTORS)) {
     const normKey = normalizeTr(key);
     if (normTarget.includes(normKey) || normKey.includes(normTarget)) {
@@ -142,10 +179,9 @@ function findTargetButton(targetPhrase) {
         try {
           const els = document.querySelectorAll(sel);
           for (const el of els) {
-            // If icon, check parent button/link
             const clickable = el.closest("button, a, [role='button']") || el;
             if (isElementVisible(clickable)) {
-              return { element: clickable, label: key };
+              return { element: clickable, label: key, isYouTube: false };
             }
           }
         } catch (_) {}
@@ -153,7 +189,7 @@ function findTargetButton(targetPhrase) {
     }
   }
 
-  // 2. Universal DOM search on clickable elements
+  // 3. Universal DOM search on clickable elements
   const candidates = document.querySelectorAll(
     "button, a, [role='button'], input[type='button'], input[type='submit'], [onclick], div[class*='btn' i], span[class*='btn' i], [tabindex]"
   );
@@ -179,7 +215,7 @@ function findTargetButton(targetPhrase) {
       for (const syn of synonyms) {
         // Exact match
         if (norm === syn) {
-          return { element: el, label: raw.trim() || syn };
+          return { element: el, label: raw.trim() || syn, isYouTube: false };
         }
 
         // Substring / contains match
@@ -187,7 +223,7 @@ function findTargetButton(targetPhrase) {
           const score = Math.min(norm.length, syn.length) / Math.max(norm.length, syn.length);
           if (score > bestScore) {
             bestScore = score;
-            bestMatch = { element: el, label: raw.trim() || targetPhrase };
+            bestMatch = { element: el, label: raw.trim() || targetPhrase, isYouTube: false };
           }
         }
       }
@@ -202,7 +238,7 @@ function findTargetButton(targetPhrase) {
 }
 
 // Executes click with visual emerald pulse animation
-function executeElementClick(el, label) {
+function executeElementClick(el, label, isYouTube = false) {
   try {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
   } catch (_) {}
@@ -213,11 +249,34 @@ function executeElementClick(el, label) {
     el.classList.remove("haydar-highlight-pulse");
   }, 1200);
 
-  // Dispatch full mouse click sequence
+  // If YouTube next button, also dispatch Shift+N shortcut to trigger immediate player action
+  if (isYouTube && (label.includes("Sonraki") || label.includes("Next") || label.includes("Sıradaki"))) {
+    try {
+      document.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "N",
+        code: "KeyN",
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      }));
+    } catch (_) {}
+  }
+
+  // Dispatch full mouse and click sequence
   const mouseOpts = { bubbles: true, cancelable: true, view: window };
   el.dispatchEvent(new MouseEvent("mousedown", mouseOpts));
   el.dispatchEvent(new MouseEvent("mouseup", mouseOpts));
   el.click();
+
+  // If element is a link and page did not navigate, enforce SPA navigation
+  if (el.tagName === "A" && el.href && !el.href.startsWith("javascript:")) {
+    const currentUrl = window.location.href;
+    setTimeout(() => {
+      if (window.location.href === currentUrl) {
+        window.location.href = el.href;
+      }
+    }, 180);
+  }
 
   return { status: "success", element: label };
 }
@@ -231,7 +290,7 @@ chrome.runtime.onMessage.addListener((cmd, sender, sendResponse) => {
   if (action === "click_button") {
     const result = findTargetButton(target);
     if (result && result.element) {
-      const resp = executeElementClick(result.element, result.label);
+      const resp = executeElementClick(result.element, result.label, result.isYouTube);
       sendResponse(resp);
     } else {
       sendResponse({
