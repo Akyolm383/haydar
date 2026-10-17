@@ -265,14 +265,12 @@ class VoiceWorkerThread(QThread):
                 if cmd.get("action_type") == "toggle_listen_on":
                     self.continuous_listening = True
                     self.matcher.wake_word_enabled = False
-                    self.signals.sig_transcribed.emit(raw_text)
                     self.signals.sig_continuous_toggled.emit(True)
                     continue
 
                 if cmd.get("action_type") == "toggle_listen_off":
                     self.continuous_listening = False
                     self.matcher.wake_word_enabled = self.default_wake_word_enabled
-                    self.signals.sig_transcribed.emit(raw_text)
                     self.signals.sig_continuous_toggled.emit(False)
                     continue
 

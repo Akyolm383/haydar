@@ -394,8 +394,12 @@ class DynamicIsland(QWidget):
         self.is_visible_on_screen = True
 
     def slide_up(self):
-        """Slides the island back up into the bezel and resets stealth black theme."""
+        """Slides the island back up into the bezel, or transitions to continuous standby if toggle is active."""
         self.hide_timer.stop()
+        if self.is_continuous_mode:
+            self.show_continuous_standby()
+            return
+
         cx = (self.screen_geo.width() - self.current_width) // 2
 
         self.pos_anim.stop()
@@ -405,17 +409,11 @@ class DynamicIsland(QWidget):
         self.pos_anim.start()
         self.is_visible_on_screen = False
 
-        # Reset theme for next invocation
-        if self.is_continuous_mode:
-            self.bg_color = QColor(self.THEME_CONTINUOUS_BG)
-            self.border_color = QColor(self.THEME_CONTINUOUS_BORDER)
-            self.visualizer.set_color(QColor(self.THEME_CONTINUOUS_VIS))
-            self.border_width = 1.4
-        else:
-            self.bg_color = QColor(self.THEME_DEFAULT_BG)
-            self.border_color = QColor(self.THEME_DEFAULT_BORDER)
-            self.visualizer.set_color(QColor(self.THEME_DEFAULT_VIS))
-            self.border_width = 1.2
+        # Reset stealth black theme for next invocation
+        self.bg_color = QColor(self.THEME_DEFAULT_BG)
+        self.border_color = QColor(self.THEME_DEFAULT_BORDER)
+        self.visualizer.set_color(QColor(self.THEME_DEFAULT_VIS))
+        self.border_width = 1.2
 
     def handle_audio_level(self, level: float):
         """Updates the live audio waveform."""
@@ -423,6 +421,29 @@ class DynamicIsland(QWidget):
             self.visualizer.set_level(level)
 
     # ---------------- State handlers ----------------
+
+    def show_continuous_standby(self):
+        """Persistent sleek standby capsule when continuous listening mode is active."""
+        if not self.is_continuous_mode:
+            return
+        self.morph_theme(
+            self.THEME_CONTINUOUS_BG,
+            self.THEME_CONTINUOUS_BORDER,
+            self.THEME_CONTINUOUS_VIS,
+            border_width=1.5,
+            duration=260,
+        )
+        self.icon_label.setText("⚡")
+        self.text_label.setText("Sürekli Dinleniyor...")
+        self.text_label.setStyleSheet("color: #FFFFFF; background: transparent;")
+        self.badge_label.setText("[ Sürekli ]")
+        self.badge_label.setStyleSheet(
+            "background: rgba(168, 85, 247, 0.25); color: #C084FC; font-weight: bold; border-radius: 6px; padding: 3px 8px; border: 1px solid rgba(168, 85, 247, 0.4);"
+        )
+        self.badge_label.show()
+        self.morph_width(295)
+        self.slide_down()
+        self.update()
 
     def show_continuous_mode(self, enabled: bool):
         """Triggered when continuous listening toggle is switched ON or OFF."""
@@ -444,11 +465,10 @@ class DynamicIsland(QWidget):
             )
             self.badge_label.show()
             self.morph_width(340)
-            if not self.is_visible_on_screen:
-                self.slide_down()
+            self.slide_down()
             self.update()
-            # Informative notification for 2.4s
-            self.hide_timer.start(2400)
+            # After 2.2s notification, settle smoothly into continuous listening standby capsule
+            self.hide_timer.start(2200)
         else:
             self.morph_theme(
                 QColor(15, 17, 23, 252),
@@ -466,10 +486,9 @@ class DynamicIsland(QWidget):
             )
             self.badge_label.show()
             self.morph_width(370)
-            if not self.is_visible_on_screen:
-                self.slide_down()
+            self.slide_down()
             self.update()
-            # Auto-retract after 2.0s
+            # Auto-retract back into bezel after 2.0s
             self.hide_timer.start(2000)
 
     def show_listening(self):
@@ -549,6 +568,11 @@ class DynamicIsland(QWidget):
 
     def show_transcribing(self, raw_text: str):
         """Triggered when speech is transcribed."""
+        if self.is_continuous_mode:
+            self.bg_color = QColor(self.THEME_CONTINUOUS_BG)
+            self.border_color = QColor(self.THEME_CONTINUOUS_BORDER)
+            self.visualizer.set_color(QColor(self.THEME_CONTINUOUS_VIS))
+
         self.icon_label.setText("💬")
         display_text = f'"{raw_text}"'
         self.text_label.setText(display_text)
