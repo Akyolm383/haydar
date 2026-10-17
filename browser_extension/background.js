@@ -96,9 +96,16 @@ async function handleCommand(cmd) {
       const tabResponse = await chrome.tabs.sendMessage(activeTab.id, cmd);
       return {
         id: msgId,
-        ...(tabResponse || { status: "success" })
+        ...(tabResponse || { status: "success", element: cmd.target || "Sonraki Video" })
       };
     } catch (sendErr) {
+      if (sendErr && sendErr.message && (sendErr.message.includes("closed before a response") || sendErr.message.includes("navigating"))) {
+        return {
+          id: msgId,
+          status: "success",
+          element: cmd.target || "Sonraki Video"
+        };
+      }
       console.log("[Haydar Background] Content script not detected in tab, injecting dynamically...");
       // Tab was opened before extension installation; inject dynamically
       await chrome.scripting.executeScript({

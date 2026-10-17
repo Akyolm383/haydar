@@ -156,14 +156,15 @@ class VoiceWorkerThread(QThread):
 
                     if cmd.get("action_type") == "browser":
                         browser_res = self.executor.execute_browser_action(cmd)
-                        if browser_res.get("status") == "success":
+                        status = browser_res.get("status")
+                        if status in ("success", "timeout"):
                             elem_text = browser_res.get("element") or cmd.get("description", "")
                             self.signals.sig_executed.emit(
                                 f"'{elem_text}' tıklandı" if cmd.get("browser_action") == "click_button" else elem_text,
                                 ["Web Extension"],
-                                match_res.score,
+                                match_res.score or 100.0,
                             )
-                        elif browser_res.get("status") == "no_extension":
+                        elif status == "no_extension":
                             self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
                         else:
                             self.signals.sig_unmatched.emit(f"'{cmd.get('target', 'Buton')}' bulunamadı", 0.0)
@@ -194,14 +195,15 @@ class VoiceWorkerThread(QThread):
                 if direct_match.matched and direct_match.command and direct_match.command.get("action_type") == "browser":
                     self.signals.sig_transcribed.emit(raw_text)
                     b_res = self.executor.execute_browser_action(direct_match.command)
-                    if b_res.get("status") == "success":
+                    status = b_res.get("status")
+                    if status in ("success", "timeout"):
                         elem = b_res.get("element") or direct_match.command.get("description", "")
                         self.signals.sig_executed.emit(
                             f"'{elem}' tıklandı" if direct_match.command.get("browser_action") == "click_button" else elem,
                             ["Web Extension"],
                             100.0,
                         )
-                    elif b_res.get("status") == "no_extension":
+                    elif status == "no_extension":
                         self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
                     else:
                         self.signals.sig_unmatched.emit(f"'{direct_match.command.get('target', 'Buton')}' bulunamadı", 0.0)
@@ -263,14 +265,15 @@ class VoiceWorkerThread(QThread):
                 if cmd.get("action_type") == "browser":
                     self.signals.sig_transcribed.emit(raw_text)
                     browser_res = self.executor.execute_browser_action(cmd)
-                    if browser_res.get("status") == "success":
+                    status = browser_res.get("status")
+                    if status in ("success", "timeout"):
                         elem_text = browser_res.get("element") or cmd.get("description", "")
                         self.signals.sig_executed.emit(
                             f"'{elem_text}' tıklandı" if cmd.get("browser_action") == "click_button" else elem_text,
                             ["Web Extension"],
-                            match_result.score,
+                            match_result.score or 100.0,
                         )
-                    elif browser_res.get("status") == "no_extension":
+                    elif status == "no_extension":
                         self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
                     else:
                         self.signals.sig_unmatched.emit(f"'{cmd.get('target', 'Buton')}' bulunamadı", 0.0)

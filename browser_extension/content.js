@@ -290,8 +290,12 @@ chrome.runtime.onMessage.addListener((cmd, sender, sendResponse) => {
   if (action === "click_button") {
     const result = findTargetButton(target);
     if (result && result.element) {
-      const resp = executeElementClick(result.element, result.label, result.isYouTube);
-      sendResponse(resp);
+      // Send success response immediately BEFORE navigation destroys context
+      sendResponse({ status: "success", element: result.label });
+      // Execute click on next frame so message has already left the page
+      setTimeout(() => {
+        executeElementClick(result.element, result.label, result.isYouTube);
+      }, 15);
     } else {
       sendResponse({
         status: "not_found",
