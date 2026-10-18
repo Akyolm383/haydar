@@ -53,11 +53,23 @@ def test_cooldown_mechanism():
 def test_execute_hotkey():
     executor = ActionExecutor(cooldown_seconds=0.0)
 
-    with patch("pyautogui.hotkey") as mock_hotkey:
-        cmd = {"id": "test_hotkey", "action_type": "hotkey", "keys": ["ctrl", "t"]}
-        res = executor.execute(cmd)
-        assert res is True
-        mock_hotkey.assert_called_once_with("ctrlleft", "t")
+    with patch.object(executor, "_execute_native_hotkey", return_value=False):
+        with patch("pyautogui.hotkey") as mock_hotkey:
+            cmd = {"id": "test_hotkey", "action_type": "hotkey", "keys": ["ctrl", "t"]}
+            res = executor.execute(cmd)
+            assert res is True
+            mock_hotkey.assert_called_once_with("ctrlleft", "t")
+
+
+def test_execute_native_hotkey():
+    executor = ActionExecutor(cooldown_seconds=0.0)
+    # Native hotkey should return True for standard keys on Windows
+    assert executor._execute_native_hotkey(["ctrl", "shift", "m"]) is True
+    assert executor._execute_native_hotkey(["f8"]) is True
+    assert executor._execute_native_hotkey(["pause"]) is True
+    assert executor._execute_native_hotkey(["scrolllock"]) is True
+    # Nonexistent key returns False (and safely triggers fallback)
+    assert executor._execute_native_hotkey(["nonexistent_key_xyz"]) is False
 
 
 def test_execute_exit_callback():

@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import time
 from typing import Any, Dict, List, Optional
@@ -173,12 +174,97 @@ class ActionExecutor:
         self.last_command_id = f"browser_scroll_{direction}"
         return res
 
+    def _execute_native_hotkey(self, keys: List[str]) -> bool:
+        """
+        Executes a hotkey sequence using native Windows hardware scan-codes and hold duration.
+        This ensures background applications with global low-level hooks (such as Discord)
+        properly detect modifier combinations and single-key toggles.
+        """
+        if sys.platform != "win32":
+            return False
+
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+
+            VK_MAP = {
+                "ctrl": 0x11,
+                "control": 0x11,
+                "ctrlleft": 0xA2,
+                "ctrlright": 0xA3,
+                "shift": 0x10,
+                "shiftleft": 0xA0,
+                "shiftright": 0xA1,
+                "alt": 0x12,
+                "altleft": 0xA4,
+                "altright": 0xA5,
+                "win": 0x5B,
+                "winleft": 0x5B,
+                "winright": 0x5C,
+                "windows": 0x5B,
+                "super": 0x5B,
+                "esc": 0x1B,
+                "escape": 0x1B,
+                "space": 0x20,
+                "tab": 0x09,
+                "enter": 0x0D,
+                "return": 0x0D,
+                "backspace": 0x08,
+                "pause": 0x13,
+                "scrolllock": 0x91,
+                "volumemute": 0xAD,
+                "volumedown": 0xAE,
+                "volumeup": 0xAF,
+            }
+
+            vks = []
+            for k in keys:
+                kl = k.lower().strip()
+                if kl in VK_MAP:
+                    vks.append(VK_MAP[kl])
+                elif len(kl) == 1:
+                    vks.append(ord(kl.upper()))
+                elif kl.startswith("f") and kl[1:].isdigit():
+                    fn = int(kl[1:])
+                    if 1 <= fn <= 24:
+                        vks.append(0x6F + fn)  # VK_F1 (0x70) to VK_F24 (0x87)
+                    else:
+                        return False
+                else:
+                    return False
+
+            # Press all keys in sequence with 15ms stagger
+            for vk in vks:
+                scan = user32.MapVirtualKeyW(vk, 0)
+                flags = 0x0001 if vk in (0x5B, 0x5C) else 0
+                user32.keybd_event(vk, scan, flags, 0)
+                time.sleep(0.015)
+
+            # Hold keys down for 40ms so background hooks (Discord, games) reliably detect the combo
+            time.sleep(0.04)
+
+            # Release all keys in reverse order
+            for vk in reversed(vks):
+                scan = user32.MapVirtualKeyW(vk, 0)
+                flags = (0x0001 if vk in (0x5B, 0x5C) else 0) | 0x0002  # KEYEVENTF_KEYUP
+                user32.keybd_event(vk, scan, flags, 0)
+                time.sleep(0.01)
+
+            return True
+        except Exception as e:
+            print(f"[Executor Native Hotkey Hatası] {e}")
+            return False
+
     def _execute_hotkey(self, keys: List[str]):
         """Executes a hotkey sequence."""
         if not keys:
             return
-        
-        # Mapping windows key alias
+
+        # Attempt native hardware-level scan code execution first
+        if self._execute_native_hotkey(keys):
+            return
+
+        # Fallback to pyautogui
         mapped_keys = [self._map_key(k) for k in keys]
         pyautogui.hotkey(*mapped_keys)
 

@@ -717,6 +717,8 @@ class DynamicIsland(QWidget):
                 "down": "Aşağı Ok",
                 "m": "M",
                 "d": "D",
+                "pause": "Pause",
+                "scrolllock": "Scroll Lock",
             }
             keys_text = " + ".join(friendly_map.get(k.lower(), k.upper()) for k in keys)
             self.badge_label.setText(f"[ {keys_text} ]")
