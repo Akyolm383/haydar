@@ -715,6 +715,8 @@ class DynamicIsland(QWidget):
                 "left": "Sol Ok",
                 "up": "Yukarı Ok",
                 "down": "Aşağı Ok",
+                "m": "M",
+                "d": "D",
             }
             keys_text = " + ".join(friendly_map.get(k.lower(), k.upper()) for k in keys)
             self.badge_label.setText(f"[ {keys_text} ]")

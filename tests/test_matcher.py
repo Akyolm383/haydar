@@ -491,6 +491,72 @@ def test_tab_navigation_and_fullscreen_commands(actual_config):
     assert res_reopen.command["id"] == "browser_reopen_tab"
 
 
+def test_discord_commands(actual_config):
+    matcher = CommandMatcher(actual_config)
+    assert matcher.wake_word_enabled is True
+
+    # 1. Wake word mode ("haydar ...")
+    mute1 = matcher.find_match("haydar discord mikrofonu kapat")
+    assert mute1.matched is True
+    assert mute1.command["id"] == "discord_mute"
+    assert mute1.command["keys"] == ["ctrl", "shift", "m"]
+    assert mute1.command["action_type"] == "hotkey"
+
+    mute2 = matcher.find_match("haydar discord mikrofonu aç")
+    assert mute2.matched is True
+    assert mute2.command["id"] == "discord_mute"
+
+    mute3 = matcher.find_match("haydar discord sustur")
+    assert mute3.matched is True
+    assert mute3.command["id"] == "discord_mute"
+
+    mute4 = matcher.find_match("haydar discord mik kapat")
+    assert mute4.matched is True
+    assert mute4.command["id"] == "discord_mute"
+
+    mute5 = matcher.find_match("haydar kendini sustur")
+    assert mute5.matched is True
+    assert mute5.command["id"] == "discord_mute"
+
+    deafen1 = matcher.find_match("haydar discord sağırlaştır")
+    assert deafen1.matched is True
+    assert deafen1.command["id"] == "discord_deafen"
+    assert deafen1.command["keys"] == ["ctrl", "shift", "d"]
+
+    deafen2 = matcher.find_match("haydar discord kulaklığı kapat")
+    assert deafen2.matched is True
+    assert deafen2.command["id"] == "discord_deafen"
+
+    open1 = matcher.find_match("haydar discord aç")
+    assert open1.matched is True
+    assert open1.command["id"] == "discord_open"
+    assert open1.command["action_type"] == "open"
+    assert open1.command["target"] == "discord:"
+
+    open2 = matcher.find_match("haydar discord başlat")
+    assert open2.matched is True
+    assert open2.command["id"] == "discord_open"
+
+    # 2. Direct whitelisted mode without saying 'haydar'
+    assert matcher.find_match("discord mikrofonu kapat").command["id"] == "discord_mute"
+    assert matcher.find_match("discord sustur").command["id"] == "discord_mute"
+    assert matcher.find_match("mikrofonu kapat").command["id"] == "discord_mute"
+    assert matcher.find_match("mikrofonu aç").command["id"] == "discord_mute"
+    assert matcher.find_match("mik kapat").command["id"] == "discord_mute"
+    assert matcher.find_match("mik aç").command["id"] == "discord_mute"
+    assert matcher.find_match("discord sağırlaştır").command["id"] == "discord_deafen"
+    assert matcher.find_match("kulaklığı kapat").command["id"] == "discord_deafen"
+    assert matcher.find_match("discord aç").command["id"] == "discord_open"
+
+    # 3. Disambiguation checks (no collisions with existing commands)
+    assert matcher.find_match("haydar sesi kapat").command["id"] == "volume_mute"
+    assert matcher.find_match("haydar sustur").command["id"] == "volume_mute"
+    assert matcher.find_match("haydar müziği kapat").command["id"] == "spotify_play_pause"
+    assert matcher.find_match("haydar pencereyi kapat").command["id"] == "close_window"
+    assert matcher.find_match("haydarı kapat").command["id"] == "exit_haydar"
+    assert matcher.find_match("kapat").command["id"] == "press_escape"
+
+
 
 
 

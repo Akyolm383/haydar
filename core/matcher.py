@@ -214,8 +214,25 @@ class CommandMatcher:
         if normalized in exit_phrases:
             return normalized, True
 
-        # Whitelisted direct multimedia commands that work with or without saying 'haydar'
+        # Whitelisted direct multimedia and app commands that work with or without saying 'haydar'
         direct_prefixes = (
+            "discord",
+            "discordda",
+            "mikrofon",
+            "mik kapat",
+            "mik aç",
+            "mik ac",
+            "kendini sustur",
+            "kulaklığı kapat",
+            "kulaklığı aç",
+            "kulakligi kapat",
+            "kulakligi ac",
+            "kulaklık kapat",
+            "kulaklık aç",
+            "kulaklik kapat",
+            "kulaklik ac",
+            "sağırlaştır",
+            "sagirlastir",
             "sonraki bölüm",
             "sonraki bolum",
             "önceki bölüm",
