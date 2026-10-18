@@ -499,7 +499,7 @@ def test_discord_commands(actual_config):
     mute1 = matcher.find_match("haydar discord mikrofonu kapat")
     assert mute1.matched is True
     assert mute1.command["id"] == "discord_mute"
-    assert mute1.command["keys"] == ["ctrl", "shift", "m"]
+    assert mute1.command["keys"] == ["ctrl", "f8"]
     assert mute1.command["action_type"] == "hotkey"
 
     mute2 = matcher.find_match("haydar discord mikrofonu aç")
@@ -521,7 +521,7 @@ def test_discord_commands(actual_config):
     deafen1 = matcher.find_match("haydar discord sağırlaştır")
     assert deafen1.matched is True
     assert deafen1.command["id"] == "discord_deafen"
-    assert deafen1.command["keys"] == ["ctrl", "shift", "d"]
+    assert deafen1.command["keys"] == ["ctrl", "f9"]
 
     deafen2 = matcher.find_match("haydar discord kulaklığı kapat")
     assert deafen2.matched is True

@@ -844,7 +844,7 @@
         "mikrofonu sustur"
       ],
       "action_type": "hotkey",
-      "keys": ["ctrl", "shift", "m"],
+      "keys": ["ctrl", "f8"],
       "threshold": 70
     },
     {
@@ -876,7 +876,7 @@
         "sagirlastir"
       ],
       "action_type": "hotkey",
-      "keys": ["ctrl", "shift", "d"],
+      "keys": ["ctrl", "f9"],
       "threshold": 70
     },
     {
