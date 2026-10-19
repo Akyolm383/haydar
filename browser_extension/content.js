@@ -679,62 +679,67 @@ function findAndPlayVideo() {
   return { status: "not_found", message: "Sayfada video oynatıcı bulunamadı" };
 }
 
-// Message listener from background.js
-chrome.runtime.onMessage.addListener((cmd, sender, sendResponse) => {
-  console.log("[Haydar Content] Handling command:", cmd);
-  const action = cmd.action;
-  const target = cmd.target || "";
+// Message listener from background.js (guarded against duplicate dynamic injection)
+if (!window.__haydarContentScriptLoaded) {
+  window.__haydarContentScriptLoaded = true;
 
-  if (action === "play_video") {
-    const result = findAndPlayVideo();
-    sendResponse(result);
-    return true;
-  }
+  chrome.runtime.onMessage.addListener((cmd, sender, sendResponse) => {
+    console.log("[Haydar Content] Handling command:", cmd);
+    const action = cmd.action;
+    const target = cmd.target || "";
 
-  if (action === "click_button") {
-    const result = findTargetButton(target);
-    if (result && result.element) {
-      const clickLabel = result.label || target;
-
-      // 1. Immediately notify background via one-way runtime message so background KNOWS a click has started
-      try {
-        chrome.runtime.sendMessage({
-          type: "button_click_started",
-          cmdId: cmd.id,
-          element: clickLabel
-        }).catch(() => {});
-      } catch (_) {}
-
-      // 2. Send success response immediately BEFORE navigation destroys context
-      sendResponse({ status: "success", element: clickLabel });
-
-      // 3. Execute click with 60ms delay so message has already safely left the page and reached background.js
-      setTimeout(() => {
-        executeElementClick(result.element, clickLabel, result.isYouTube);
-      }, 60);
-    } else {
-      sendResponse({
-        status: "not_found",
-        message: `'${target}' butonu sayfada bulunamadı`
-      });
+    if (action === "play_video") {
+      const result = findAndPlayVideo();
+      sendResponse(result);
+      return true;
     }
-    return true;
-  }
 
-  if (action === "scroll_down") {
-    const amount = (cmd.params && cmd.params.pixels) || window.innerHeight * 0.75;
-    window.scrollBy({ top: amount, behavior: "smooth" });
-    sendResponse({ status: "success", element: "Sayfa aşağı kaydırıldı" });
-    return true;
-  }
+    if (action === "click_button") {
+      const result = findTargetButton(target);
+      if (result && result.element) {
+        const clickLabel = result.label || target;
 
-  if (action === "scroll_up") {
-    const amount = (cmd.params && cmd.params.pixels) || window.innerHeight * 0.75;
-    window.scrollBy({ top: -amount, behavior: "smooth" });
-    sendResponse({ status: "success", element: "Sayfa yukarı kaydırıldı" });
-    return true;
-  }
+        // 1. Immediately notify background via one-way runtime message so background KNOWS a click has started
+        try {
+          chrome.runtime.sendMessage({
+            type: "button_click_started",
+            cmdId: cmd.id,
+            element: clickLabel
+          }).catch(() => {});
+        } catch (_) {}
 
-  sendResponse({ status: "unknown_action", message: `Bilinmeyen eylem: ${action}` });
-  return true;
-});
+        // 2. Send success response immediately BEFORE navigation destroys context
+        sendResponse({ status: "success", element: clickLabel });
+
+        // 3. Execute click with 60ms delay so message has already safely left the page and reached background.js
+        setTimeout(() => {
+          executeElementClick(result.element, clickLabel, result.isYouTube);
+        }, 60);
+      } else {
+        sendResponse({
+          status: "not_found",
+          message: `'${target}' butonu sayfada bulunamadı`
+        });
+      }
+      return true;
+    }
+
+    if (action === "scroll_down") {
+      const amount = (cmd.params && cmd.params.pixels) || window.innerHeight * 0.75;
+      window.scrollBy({ top: amount, behavior: "smooth" });
+      sendResponse({ status: "success", element: "Sayfa aşağı kaydırıldı" });
+      return true;
+    }
+
+    if (action === "scroll_up") {
+      const amount = (cmd.params && cmd.params.pixels) || window.innerHeight * 0.75;
+      window.scrollBy({ top: -amount, behavior: "smooth" });
+      sendResponse({ status: "success", element: "Sayfa yukarı kaydırıldı" });
+      return true;
+    }
+
+    sendResponse({ status: "unknown_action", message: `Bilinmeyen eylem: ${action}` });
+    return true;
+  });
+}
+

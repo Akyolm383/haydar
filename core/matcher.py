@@ -117,39 +117,35 @@ def extract_browser_click_target(text: str) -> Optional[str]:
     return None
 
 
+_TR_LOWER_TRANS = str.maketrans({
+    "İ": "i",
+    "I": "ı",
+    "Ğ": "ğ",
+    "Ü": "ü",
+    "Ş": "ş",
+    "Ö": "ö",
+    "Ç": "ç",
+})
+_PUNCT_PATTERN = re.compile(r"[^\w\s\dçğıöşü]")
+_WS_PATTERN = re.compile(r"\s+")
+_DIGITS_PATTERN = re.compile(r"\b\d+\b")
+_SORTED_NUM_KEYS = sorted(TURKISH_NUMBERS.keys(), key=len, reverse=True)
+_NUMBERS_PATTERN = re.compile(r"\b(" + "|".join(re.escape(k) for k in _SORTED_NUM_KEYS) + r")\b")
+
+
 def normalize_turkish(text: str) -> str:
     """
     Turkish-aware text normalization.
     Converts uppercase Turkish letters correctly, normalizes number words to digits,
-    and removes punctuation.
+    and removes punctuation using pre-compiled patterns.
     """
     if not text:
         return ""
-    
-    # Proper Turkish uppercase to lowercase conversion
-    mapping = {
-        "İ": "i",
-        "I": "ı",
-        "Ğ": "ğ",
-        "Ü": "ü",
-        "Ş": "ş",
-        "Ö": "ö",
-        "Ç": "ç",
-    }
-    for upper, lower in mapping.items():
-        text = text.replace(upper, lower)
-    text = text.lower()
-    
-    # Remove punctuation and special characters
-    text = re.sub(r"[^\w\s\dçğıöşü]", " ", text)
 
-    # Convert spoken Turkish number words to digits
-    for word, digit in sorted(TURKISH_NUMBERS.items(), key=lambda x: -len(x[0])):
-        text = re.sub(r"\b" + re.escape(word) + r"\b", digit, text)
-
-    # Collapse multiple whitespaces into one
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    text = text.translate(_TR_LOWER_TRANS).lower()
+    text = _PUNCT_PATTERN.sub(" ", text)
+    text = _NUMBERS_PATTERN.sub(lambda m: TURKISH_NUMBERS[m.group(0)], text)
+    return _WS_PATTERN.sub(" ", text).strip()
 
 
 @dataclass
@@ -171,17 +167,33 @@ class CommandMatcher:
         self.wake_word_enabled: bool = bool(self.settings.get("wake_word_enabled", False))
         self.wake_word: str = normalize_turkish(self.settings.get("wake_word", "haydar"))
 
+        # Pre-compile and cache normalized triggers and numeric tokens once at startup
+        self._compiled_commands: List[Tuple[Dict[str, Any], List[Tuple[str, str, set, int]]]] = []
+        for cmd in self.commands:
+            compiled_triggers: List[Tuple[str, str, set, int]] = []
+            for trigger in cmd.get("triggers", []):
+                norm_t = normalize_turkish(trigger)
+                tr_nums = set(_DIGITS_PATTERN.findall(norm_t))
+                word_count = len(norm_t.split())
+                compiled_triggers.append((trigger, norm_t, tr_nums, word_count))
+            self._compiled_commands.append((cmd, compiled_triggers))
+
     def reload_config(self, config: Dict[str, Any]):
         """Reloads configuration and commands."""
         self.__init__(config)
 
-    def extract_command_text(self, text: str) -> Tuple[str, bool]:
+    def extract_command_text(
+        self,
+        text: str,
+        require_wake_word: Optional[bool] = None,
+    ) -> Tuple[str, bool]:
         """
         Extracts command text by handling wake word if enabled.
         Returns (extracted_text, wake_word_found).
         """
         normalized = normalize_turkish(text)
-        if not self.wake_word_enabled:
+        use_wake_word = self.wake_word_enabled if require_wake_word is None else require_wake_word
+        if not use_wake_word:
             return normalized, True
 
         words = normalized.split()
@@ -341,16 +353,24 @@ class CommandMatcher:
 
         return normalized, False
 
-    def find_match(self, raw_text: str) -> MatchResult:
+    def find_match(
+        self,
+        raw_text: str,
+        require_wake_word: Optional[bool] = None,
+    ) -> MatchResult:
         """
         Finds the best matching command for the given recognized text.
         """
         if not raw_text or not raw_text.strip():
             return MatchResult(matched=False, reason="Boş ses girdisi")
 
-        processed_text, wake_detected = self.extract_command_text(raw_text)
+        use_wake_word = self.wake_word_enabled if require_wake_word is None else require_wake_word
+        processed_text, wake_detected = self.extract_command_text(
+            raw_text,
+            require_wake_word=use_wake_word,
+        )
 
-        if self.wake_word_enabled and not wake_detected:
+        if use_wake_word and not wake_detected:
             return MatchResult(
                 matched=False,
                 processed_text=processed_text,
@@ -376,16 +396,11 @@ class CommandMatcher:
         best_trigger = ""
         best_score = 0.0
 
-        in_nums = set(re.findall(r"\b\d+\b", processed_text))
+        in_nums = set(_DIGITS_PATTERN.findall(processed_text))
+        in_word_count = len(processed_text.split())
 
-        for cmd in self.commands:
-            threshold = float(cmd.get("threshold", self.default_threshold))
-            triggers = cmd.get("triggers", [])
-
-            for trigger in triggers:
-                norm_trigger = normalize_turkish(trigger)
-                tr_nums = set(re.findall(r"\b\d+\b", norm_trigger))
-
+        for cmd, compiled_triggers in self._compiled_commands:
+            for trigger, norm_trigger, tr_nums, tr_word_count in compiled_triggers:
                 # Number conflict check:
                 # 1. If both specify numbers and they differ (e.g. 15 vs 5), do not match
                 if in_nums and tr_nums and in_nums != tr_nums:
@@ -400,20 +415,20 @@ class CommandMatcher:
                 penalty = 35.0 if (in_nums and not tr_nums) else 0.0
 
                 # Proportional penalty when word count differs
-                len_diff = abs(len(norm_trigger.split()) - len(processed_text.split()))
+                len_diff = abs(tr_word_count - in_word_count)
                 word_penalty = len_diff * 6.0
 
-                token_set_score = fuzz.token_set_ratio(processed_text, norm_trigger)
-                full_ratio = fuzz.ratio(processed_text, norm_trigger)
-
-                # Prioritize exact or near-identical string matches
+                # Fast-path for exact string match
                 if processed_text == norm_trigger:
                     score = 100.0
-                elif full_ratio >= 90:
-                    score = full_ratio
                 else:
-                    raw_score = max(token_set_score * 0.7 + full_ratio * 0.3, full_ratio)
-                    score = max(0.0, raw_score - penalty - word_penalty)
+                    full_ratio = fuzz.ratio(processed_text, norm_trigger)
+                    if full_ratio >= 90:
+                        score = full_ratio
+                    else:
+                        token_set_score = fuzz.token_set_ratio(processed_text, norm_trigger)
+                        raw_score = max(token_set_score * 0.7 + full_ratio * 0.3, full_ratio)
+                        score = max(0.0, raw_score - penalty - word_penalty)
 
                 if score > best_score:
                     best_score = score
@@ -446,3 +461,4 @@ class CommandMatcher:
             processed_text=processed_text,
             reason="Tanımlı komutlarla eşleşmedi",
         )
+

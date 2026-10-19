@@ -63,13 +63,16 @@ def test_execute_hotkey():
 
 def test_execute_native_hotkey():
     executor = ActionExecutor(cooldown_seconds=0.0)
-    # Native hotkey should return True for standard keys on Windows
-    assert executor._execute_native_hotkey(["ctrl", "shift", "m"]) is True
-    assert executor._execute_native_hotkey(["f8"]) is True
-    assert executor._execute_native_hotkey(["pause"]) is True
-    assert executor._execute_native_hotkey(["scrolllock"]) is True
-    # Nonexistent key returns False (and safely triggers fallback)
-    assert executor._execute_native_hotkey(["nonexistent_key_xyz"]) is False
+    with patch("ctypes.windll.user32") as mock_user32, patch("time.sleep"):
+        mock_user32.MapVirtualKeyW.return_value = 0x1D
+        # Native hotkey should return True for standard keys on Windows without pressing real OS keys
+        assert executor._execute_native_hotkey(["ctrl", "shift", "m"]) is True
+        assert executor._execute_native_hotkey(["f8"]) is True
+        assert executor._execute_native_hotkey(["pause"]) is True
+        assert executor._execute_native_hotkey(["scrolllock"]) is True
+        assert mock_user32.keybd_event.called
+        # Nonexistent key returns False (and safely triggers fallback)
+        assert executor._execute_native_hotkey(["nonexistent_key_xyz"]) is False
 
 
 def test_execute_exit_callback():

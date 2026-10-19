@@ -68,6 +68,25 @@ class VoiceWorkerThread(QThread):
         self.window_switch_timestamp = 0.0
         self.window_switch_timeout = 8.0
 
+    DIRECT_VIDEO_PREFIXES = (
+        "sonraki bölüm", "sonraki bolum", "önceki bölüm", "onceki bolum",
+        "tıkla sonraki bölüm", "tıkla sonraki bolum", "tıkla sıradaki bölüm", "tıkla sonraki",
+        "tıkla önceki bölüm", "tıkla onceki bolum", "tıkla önceki", "tıkla onceki",
+        "introyu atla", "reklamı geç", "reklamı atla",
+        "videoyu aç", "videoyu ac", "video aç", "video ac",
+        "videoyu başlat", "videoyu baslat", "video başlat", "video baslat",
+        "videoyu oynat", "video oynat",
+        "filmi başlat", "filmi baslat", "film başlat", "film baslat",
+        "filmi aç", "filmi ac", "film aç", "film ac",
+        "filmi oynat", "film oynat",
+        "diziyi başlat", "diziyi baslat", "dizi başlat", "dizi baslat",
+        "diziyi aç", "diziyi ac", "dizi aç", "dizi ac",
+        "diziyi oynat", "dizi oynat",
+        "videoyu bul", "video bul",
+        "playerı aç", "playeri ac", "player aç", "player ac",
+        "oynatıcıyı aç", "oynatıcı aç", "oynatici ac",
+    )
+
     def _handle_browser_result(
         self,
         resp: dict,
@@ -77,7 +96,7 @@ class VoiceWorkerThread(QThread):
     ) -> None:
         """Unified handler for all browser automation responses."""
         status = resp.get("status")
-        if status in ("success", "timeout"):
+        if status == "success":
             elem = resp.get("element") or target_name
             norm_elem = str(elem).strip().lower()
             if norm_elem in ("önceki bölüm", "onceki bolum", "önceki", "onceki"):
@@ -93,12 +112,148 @@ class VoiceWorkerThread(QThread):
                 disp_msg = str(elem)
 
             self.signals.sig_executed.emit(disp_msg, ["Web Extension"], score)
+        elif status == "timeout":
+            self.signals.sig_unmatched.emit("Tarayıcı yanıt vermedi (Zaman aşımı)", 0.0)
         elif status == "no_extension":
             self.signals.sig_unmatched.emit("Tarayıcı eklentisi bağlı değil", 0.0)
         else:
             fallback = "Video Oynatıcı" if action_type == "play_video" else "Buton"
             missing_target = target_name or fallback
             self.signals.sig_unmatched.emit(f"'{missing_target}' bulunamadı", 0.0)
+
+    def _process_speech_command(self, raw_text: str, is_awake_followup: bool = False) -> bool:
+        """
+        Unified pipeline for both two-stage ('Haydar' -> command) and single-shot ('Haydar <command>') modes.
+        Returns False if the assistant should exit the main loop, True otherwise.
+        """
+        if is_awake_followup:
+            self.signals.sig_transcribed.emit(raw_text)
+
+        require_wake = False if is_awake_followup else None
+        match_result = self.matcher.find_match(raw_text, require_wake_word=require_wake)
+        processed_text, wake_detected = self.matcher.extract_command_text(
+            raw_text, require_wake_word=require_wake
+        )
+        is_authorized = is_awake_followup or wake_detected or not self.matcher.wake_word_enabled
+
+        # 1. Direct video browser commands (works even without saying 'Haydar' first)
+        if not is_authorized:
+            norm_raw = normalize_turkish(raw_text)
+            if any(norm_raw.startswith(k) for k in self.DIRECT_VIDEO_PREFIXES):
+                direct_match = self.matcher.find_match(raw_text, require_wake_word=False)
+                if (
+                    direct_match.matched
+                    and direct_match.command
+                    and direct_match.command.get("action_type") == "browser"
+                ):
+                    self.signals.sig_transcribed.emit(raw_text)
+                    b_res = self.executor.execute_browser_action(direct_match.command)
+                    self._handle_browser_result(
+                        b_res,
+                        direct_match.command.get("target") or direct_match.command.get("description", ""),
+                        action_type=direct_match.command.get("browser_action", "click_button"),
+                        score=100.0,
+                    )
+                    return True
+
+        # 2. Direct numbered window switch: e.g. "haydar 5. pencere" or "Haydar" -> "5. pencere"
+        if is_authorized and "pencere" in processed_text:
+            direct_num = extract_window_number(processed_text)
+            if direct_num is not None and 1 <= direct_num <= 30:
+                if not is_awake_followup:
+                    self.signals.sig_transcribed.emit(raw_text)
+                success = self.executor.switch_to_nth_window(direct_num)
+                if success:
+                    self.signals.sig_executed.emit(
+                        f"{direct_num}. pencere açıldı",
+                        ["alt", f"tab x{direct_num}"],
+                        100.0,
+                    )
+                return True
+
+        # 3. Dynamic custom browser button click (unless a high-confidence predefined command matched, e.g. 'tıkla sonraki bölüm')
+        has_exact_predefined = bool(match_result.matched and match_result.command and match_result.score >= 95.0)
+        if is_authorized and not has_exact_predefined:
+            click_target = extract_browser_click_target(processed_text) or extract_browser_click_target(raw_text)
+            if click_target:
+                if not is_awake_followup:
+                    self.signals.sig_transcribed.emit(raw_text)
+                resp = self.executor.browser_click_custom(click_target)
+                self._handle_browser_result(resp, click_target, action_type="click_button", score=100.0)
+                return True
+
+        # 4. Predefined commands from commands.json
+        if match_result.matched and match_result.command:
+            cmd = match_result.command
+            action_type = cmd.get("action_type")
+
+            if action_type == "toggle_listen_on":
+                self.continuous_listening = True
+                self.matcher.wake_word_enabled = False
+                self.signals.sig_continuous_toggled.emit(True)
+                return True
+
+            if action_type == "toggle_listen_off":
+                self.continuous_listening = False
+                self.matcher.wake_word_enabled = self.default_wake_word_enabled
+                self.signals.sig_continuous_toggled.emit(False)
+                return True
+
+            if cmd.get("id") == "wake_greeting":
+                self.is_haydar_awake = True
+                self.haydar_awake_timestamp = time.time()
+                self.signals.sig_waiting_command.emit()
+                return True
+
+            if cmd.get("id") == "switch_window_mode":
+                self.is_window_switch_active = True
+                self.window_switch_timestamp = time.time()
+                if not is_awake_followup:
+                    self.signals.sig_transcribed.emit(raw_text)
+                self.executor.open_window_switcher()
+                self.signals.sig_window_switch_mode.emit()
+                return True
+
+            if action_type == "browser":
+                if not is_awake_followup:
+                    self.signals.sig_transcribed.emit(raw_text)
+                browser_res = self.executor.execute_browser_action(cmd)
+                self._handle_browser_result(
+                    browser_res,
+                    cmd.get("target") or cmd.get("description", ""),
+                    action_type=cmd.get("browser_action", "click_button"),
+                    score=match_result.score or 100.0,
+                )
+                return True
+
+            if not is_awake_followup:
+                self.signals.sig_transcribed.emit(raw_text)
+
+            if action_type == "exit":
+                self.signals.sig_exit.emit()
+                self.running = False
+                return False
+
+            executed = self.executor.execute(cmd)
+            if executed:
+                self.signals.sig_executed.emit(
+                    cmd.get("description", ""),
+                    cmd.get("keys", []),
+                    match_result.score,
+                )
+            return True
+
+        # 5. Unmatched speech handling
+        if is_awake_followup:
+            self.signals.sig_unmatched.emit(raw_text, match_result.score)
+        elif wake_detected and processed_text:
+            self.signals.sig_transcribed.emit(raw_text)
+            self.signals.sig_unmatched.emit(processed_text, match_result.score)
+        elif not self.matcher.wake_word_enabled:
+            self.signals.sig_transcribed.emit(raw_text)
+            self.signals.sig_unmatched.emit(raw_text, match_result.score)
+
+        return True
 
     def run(self):
         while self.running:
@@ -149,197 +304,15 @@ class VoiceWorkerThread(QThread):
                     self.signals.sig_unmatched.emit(raw_text, 0.0)
                 continue
 
-            # --- CASE 1: Assistant is waiting for command following "Haydar" ---
-            if self.is_haydar_awake and (now - self.haydar_awake_timestamp) <= self.wake_window_seconds:
-                self.is_haydar_awake = False
-                self.signals.sig_transcribed.emit(raw_text)
-
-                # Check dynamic click command first: e.g. "tıkla abone ol", "abone ol butonuna bas"
-                click_target = extract_browser_click_target(raw_text)
-                if click_target:
-                    resp = self.executor.browser_click_custom(click_target)
-                    self._handle_browser_result(resp, click_target, action_type="click_button", score=100.0)
-                    continue
-
-                orig_wake_setting = self.matcher.wake_word_enabled
-                self.matcher.wake_word_enabled = False
-                match_res = self.matcher.find_match(raw_text)
-                self.matcher.wake_word_enabled = orig_wake_setting
-
-                if match_res.matched and match_res.command:
-                    cmd = match_res.command
-
-                    if cmd.get("action_type") == "toggle_listen_on":
-                        self.continuous_listening = True
-                        self.matcher.wake_word_enabled = False
-                        self.signals.sig_continuous_toggled.emit(True)
-                        continue
-
-                    if cmd.get("action_type") == "toggle_listen_off":
-                        self.continuous_listening = False
-                        self.matcher.wake_word_enabled = self.default_wake_word_enabled
-                        self.signals.sig_continuous_toggled.emit(False)
-                        continue
-
-                    if cmd.get("id") == "switch_window_mode":
-                        self.is_window_switch_active = True
-                        self.window_switch_timestamp = time.time()
-                        self.executor.open_window_switcher()
-                        self.signals.sig_window_switch_mode.emit()
-                        continue
-
-                    if cmd.get("action_type") == "exit":
-                        self.signals.sig_exit.emit()
-                        self.running = False
-                        break
-
-                    if cmd.get("action_type") == "browser":
-                        browser_res = self.executor.execute_browser_action(cmd)
-                        self._handle_browser_result(
-                            browser_res,
-                            cmd.get("target") or cmd.get("description", ""),
-                            action_type=cmd.get("browser_action", "click_button"),
-                            score=match_res.score or 100.0,
-                        )
-                        continue
-
-                    executed = self.executor.execute(cmd)
-                    if executed:
-                        self.signals.sig_executed.emit(
-                            cmd.get("description", ""),
-                            cmd.get("keys", []),
-                            match_res.score,
-                        )
-                else:
-                    self.signals.sig_unmatched.emit(raw_text, match_res.score)
-                continue
-
-            # --- CASE 2: Standby mode ("Haydar ..." or "Haydar") ---
-            match_result = self.matcher.find_match(raw_text)
-            processed_text, wake_detected = self.matcher.extract_command_text(raw_text)
-
-            # Direct video browser commands (works with 'Haydar ...' or simply without 'Haydar'):
-            norm_raw = normalize_turkish(raw_text)
-            direct_video_prefixes = (
-                "sonraki bölüm", "sonraki bolum", "önceki bölüm", "onceki bolum",
-                "tıkla sonraki bölüm", "tıkla sonraki bolum", "tıkla sıradaki bölüm", "tıkla sonraki",
-                "tıkla önceki bölüm", "tıkla onceki bolum", "tıkla önceki", "tıkla onceki",
-                "introyu atla", "reklamı geç", "reklamı atla",
-                "videoyu aç", "videoyu ac", "video aç", "video ac",
-                "videoyu başlat", "videoyu baslat", "video başlat", "video baslat",
-                "videoyu oynat", "video oynat",
-                "filmi başlat", "filmi baslat", "film başlat", "film baslat",
-                "filmi aç", "filmi ac", "film aç", "film ac",
-                "filmi oynat", "film oynat",
-                "diziyi başlat", "diziyi baslat", "dizi başlat", "dizi baslat",
-                "diziyi aç", "diziyi ac", "dizi aç", "dizi ac",
-                "diziyi oynat", "dizi oynat",
-                "videoyu bul", "video bul",
-                "playerı aç", "playeri ac", "player aç", "player ac",
-                "oynatıcıyı aç", "oynatıcı aç", "oynatici ac"
+            # --- CASE 1 & CASE 2: Unified speech command processing ---
+            is_awake_followup = (
+                self.is_haydar_awake and (now - self.haydar_awake_timestamp) <= self.wake_window_seconds
             )
-            if any(norm_raw.startswith(k) for k in direct_video_prefixes):
-                orig_wake_setting = self.matcher.wake_word_enabled
-                self.matcher.wake_word_enabled = False
-                direct_match = self.matcher.find_match(raw_text)
-                self.matcher.wake_word_enabled = orig_wake_setting
-                if direct_match.matched and direct_match.command and direct_match.command.get("action_type") == "browser":
-                    self.signals.sig_transcribed.emit(raw_text)
-                    b_res = self.executor.execute_browser_action(direct_match.command)
-                    self._handle_browser_result(
-                        b_res,
-                        direct_match.command.get("target") or direct_match.command.get("description", ""),
-                        action_type=direct_match.command.get("browser_action", "click_button"),
-                        score=100.0,
-                    )
-                    continue
+            if is_awake_followup:
+                self.is_haydar_awake = False
 
-            # Direct single-shot window command: e.g. "haydar 5. pencere", "haydar 3. pencereye geç"
-            if (wake_detected or not self.matcher.wake_word_enabled) and "pencere" in processed_text:
-                direct_num = extract_window_number(processed_text)
-                if direct_num is not None and 1 <= direct_num <= 30:
-                    self.signals.sig_transcribed.emit(raw_text)
-                    success = self.executor.switch_to_nth_window(direct_num)
-                    if success:
-                        self.signals.sig_executed.emit(
-                            f"{direct_num}. pencere açıldı",
-                            ["alt", f"tab x{direct_num}"],
-                            100.0,
-                        )
-                    continue
-
-            # Direct single-shot browser click: e.g. "haydar tıkla abone ol", "haydar sepete ekle butonuna bas", "tıkla abone ol"
-            if wake_detected or not self.matcher.wake_word_enabled:
-                click_target = extract_browser_click_target(processed_text) or extract_browser_click_target(raw_text)
-                if click_target:
-                    self.signals.sig_transcribed.emit(raw_text)
-                    resp = self.executor.browser_click_custom(click_target)
-                    self._handle_browser_result(resp, click_target, action_type="click_button", score=100.0)
-                    continue
-
-            if match_result.matched and match_result.command:
-                cmd = match_result.command
-
-                if cmd.get("action_type") == "toggle_listen_on":
-                    self.continuous_listening = True
-                    self.matcher.wake_word_enabled = False
-                    self.signals.sig_continuous_toggled.emit(True)
-                    continue
-
-                if cmd.get("action_type") == "toggle_listen_off":
-                    self.continuous_listening = False
-                    self.matcher.wake_word_enabled = self.default_wake_word_enabled
-                    self.signals.sig_continuous_toggled.emit(False)
-                    continue
-
-                # User said just "Haydar" -> Enter command listening mode
-                if cmd.get("id") == "wake_greeting":
-                    self.is_haydar_awake = True
-                    self.haydar_awake_timestamp = time.time()
-                    self.signals.sig_waiting_command.emit()
-                    continue
-
-                # User said "Haydar pencere değiştir"
-                if cmd.get("id") == "switch_window_mode":
-                    self.is_window_switch_active = True
-                    self.window_switch_timestamp = time.time()
-                    self.signals.sig_transcribed.emit(raw_text)
-                    self.executor.open_window_switcher()
-                    self.signals.sig_window_switch_mode.emit()
-                    continue
-
-                # Browser extension command
-                if cmd.get("action_type") == "browser":
-                    self.signals.sig_transcribed.emit(raw_text)
-                    browser_res = self.executor.execute_browser_action(cmd)
-                    self._handle_browser_result(
-                        browser_res,
-                        cmd.get("target") or cmd.get("description", ""),
-                        action_type=cmd.get("browser_action", "click_button"),
-                        score=match_result.score or 100.0,
-                    )
-                    continue
-
-                # User said standard command in one breath
-                self.signals.sig_transcribed.emit(raw_text)
-                if cmd.get("action_type") == "exit":
-                    self.signals.sig_exit.emit()
-                    self.running = False
-                    break
-
-                executed = self.executor.execute(cmd)
-                if executed:
-                    self.signals.sig_executed.emit(
-                        cmd.get("description", ""),
-                        cmd.get("keys", []),
-                        match_result.score,
-                    )
-            elif wake_detected and processed_text:
-                self.signals.sig_transcribed.emit(raw_text)
-                self.signals.sig_unmatched.emit(processed_text, match_result.score)
-            elif not self.matcher.wake_word_enabled:
-                self.signals.sig_transcribed.emit(raw_text)
-                self.signals.sig_unmatched.emit(raw_text, match_result.score)
+            if not self._process_speech_command(raw_text, is_awake_followup=is_awake_followup):
+                break
 
     def stop(self):
         self.running = False
@@ -471,7 +444,7 @@ def main():
             language=settings.get("language", "tr-TR"),
             energy_threshold_adjustment=settings.get("energy_threshold_adjustment", True),
             on_speech_start=on_speech_start_callback,
-            on_audio_level=lambda lvl: island_signals.sig_audio_level.emit(lvl),
+            on_audio_level=lambda lvl: island_signals.sig_audio_level.emit(lvl) if island.is_visible_on_screen else None,
         )
 
         if settings.get("energy_threshold_adjustment", True):

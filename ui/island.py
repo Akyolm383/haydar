@@ -95,10 +95,19 @@ class AudioWaveVisualizer(QWidget):
         self.target_heights = [4.0, 4.0, 4.0, 4.0]
         self.active_color = QColor(235, 240, 248, 220)  # Pure cool white/silver default
 
-        # 30 FPS smooth physics decay timer
+        # 30 FPS smooth physics decay timer (started only when island is visible)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._update_physics)
-        self.timer.start(33)
+
+    def start_anim(self):
+        if not self.timer.isActive():
+            self.timer.start(33)
+
+    def stop_anim(self):
+        if self.timer.isActive():
+            self.timer.stop()
+        self.current_heights = [4.0, 4.0, 4.0, 4.0]
+        self.target_heights = [4.0, 4.0, 4.0, 4.0]
 
     def set_level(self, level: float):
         """Called when new audio amplitude arrives (0.0 to 1.0)."""
@@ -230,11 +239,10 @@ class DynamicIsland(QWidget):
         self.hide_timer.setSingleShot(True)
         self.hide_timer.timeout.connect(self.slide_up)
 
-        # Periodic topmost watchdog timer (keeps island above fullscreen apps)
+        # Periodic topmost watchdog timer (active only when island is visible on screen)
         self.topmost_watchdog = QTimer(self)
         self.topmost_watchdog.setInterval(500)
         self.topmost_watchdog.timeout.connect(self._enforce_topmost_if_visible)
-        self.topmost_watchdog.start()
 
         # Tray icon
         self._init_tray_icon()
@@ -321,7 +329,8 @@ class DynamicIsland(QWidget):
         self.tray.show()
 
     def _open_commands_json(self):
-        config_path = os.path.abspath("config/commands.json")
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        config_path = os.path.join(project_root, "config", "commands.json")
         try:
             os.startfile(config_path)
         except Exception:
@@ -475,6 +484,9 @@ class DynamicIsland(QWidget):
         self.force_on_top()
         self.pos_anim.start()
         self.is_visible_on_screen = True
+        self.visualizer.start_anim()
+        if not self.topmost_watchdog.isActive():
+            self.topmost_watchdog.start()
 
     def slide_up(self):
         """Slides the island back up into the bezel, or transitions to continuous standby if toggle is active."""
@@ -492,6 +504,8 @@ class DynamicIsland(QWidget):
         self.pos_anim.setEndValue(QPoint(cx, hidden_y))
         self.pos_anim.start()
         self.is_visible_on_screen = False
+        self.visualizer.stop_anim()
+        self.topmost_watchdog.stop()
 
         # Reset stealth black theme for next invocation
         self.bg_color = QColor(self.THEME_DEFAULT_BG)
@@ -762,7 +776,7 @@ class DynamicIsland(QWidget):
         )
 
         self.icon_label.setText("✕")
-        if any(term in raw_text.lower() for term in ["bulunamadı", "bağlı değil", "iptal", "hata"]):
+        if any(term in raw_text.lower() for term in ["bulunamadı", "bağlı değil", "iptal", "hata", "zaman aşımı", "yanıt vermedi"]):
             display_str = raw_text
         else:
             display_str = f'"{raw_text}" (Anlaşılamadı)'

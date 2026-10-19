@@ -473,13 +473,11 @@ async function handleCommand(cmd) {
       const isDisconnectError =
         errMsg.includes("closed before") ||
         errMsg.includes("navigating") ||
-        errMsg.includes("receiving end") ||
-        errMsg.includes("could not establish connection") ||
         errMsg.includes("frame") ||
         errMsg.includes("context was destroyed") ||
         errMsg.includes("context invalidated");
 
-      // For button clicks: if page navigated or port closed, the click succeeded!
+      // For button clicks: if page navigated or context was destroyed during click, the click succeeded!
       if (cmd.action === "click_button" && (isNavigating || isDisconnectError)) {
         console.log("[Haydar Background] Click caused page navigation/disconnect. Treating as success.");
         return {
@@ -517,11 +515,15 @@ async function handleCommand(cmd) {
         };
       } catch (retryErr) {
         if (cmd.action === "click_button") {
-          return {
-            id: msgId,
-            status: "success",
-            element: resolveElementLabel(cmd)
-          };
+          if (activeClickConfirmations.has(msgId)) {
+            const conf = activeClickConfirmations.get(msgId);
+            activeClickConfirmations.delete(msgId);
+            return { id: msgId, status: "success", element: resolveElementLabel(cmd, conf) };
+          }
+          const tabAfterRetry = await chrome.tabs.get(activeTab.id).catch(() => null);
+          if (!tabAfterRetry || tabAfterRetry.status === "loading" || tabAfterRetry.url !== prevUrl) {
+            return { id: msgId, status: "success", element: resolveElementLabel(cmd) };
+          }
         }
         throw retryErr;
       }
